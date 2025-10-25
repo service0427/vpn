@@ -170,19 +170,20 @@ echo ""
 echo -e "${GREEN}✅ 사용법:${NC}"
 
 # VPN별 사용자명 표시
+IDX=0
 for iface in $(wg show interfaces 2>/dev/null); do
     if [[ "$iface" =~ ^wg[0-9]+$ ]]; then
         NUM="${iface#wg}"
-        USERNAME="vpn${NUM}"
     else
-        USERNAME="vpn-${iface#wg-}"
+        NUM="$IDX"
     fi
 
     # API에서 VPN IP 조회
-    VPN_IP_INFO=$(echo "$VPN_LIST" | jq -r ".vpns[$NUM].public_ip // \"unknown\"")
+    VPN_IP_INFO=$(echo "$VPN_LIST" | jq -r ".vpns[$IDX].public_ip // \"unknown\"")
     VPN_PUBLIC_IP=${VPN_IP_INFO:-"unknown"}
 
-    echo "  vpn $USERNAME python crawl.py  # $VPN_PUBLIC_IP ($iface)"
+    echo "  ./vpn $NUM curl ifconfig.me  # $VPN_PUBLIC_IP ($iface → vpn$NUM)"
+    IDX=$((IDX + 1))
 done
 
 echo ""
