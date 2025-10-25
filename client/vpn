@@ -1,0 +1,80 @@
+#!/bin/bash
+
+#######################################
+# VPN Wrapper - 간편한 VPN 실행 도구
+# 사용법: vpn <번호|이름> <명령어>
+#######################################
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+# 사용법
+if [ $# -lt 2 ]; then
+    echo "사용법: vpn <VPN번호|이름> <명령어>"
+    echo ""
+    echo "예시:"
+    echo "  vpn 0 python crawl.py"
+    echo "  vpn 1 curl https://naver.com"
+    echo "  vpn kr1 python crawl.py"
+    echo ""
+    echo "VPN 목록:"
+    for iface in $(wg show interfaces 2>/dev/null); do
+        if [[ "$iface" =~ ^wg[0-9]+$ ]]; then
+            NUM="${iface#wg}"
+            USERNAME="vpn${NUM}"
+        else
+            USERNAME="vpn-${iface#wg-}"
+        fi
+        if id "$USERNAME" &>/dev/null; then
+            UID=$(id -u $USERNAME)
+            echo "  $USERNAME → $iface (UID: $UID)"
+        fi
+    done
+    exit 1
+fi
+
+VPN_ID=$1
+shift  # 나머지 인수들이 실행할 명령어
+
+# VPN 사용자명 결정
+if [[ "$VPN_ID" =~ ^[0-9]+$ ]]; then
+    # 숫자 입력 (0, 1, 2...)
+    USERNAME="vpn${VPN_ID}"
+else
+    # 이름 입력 (kr1, usa...)
+    USERNAME="vpn-${VPN_ID}"
+fi
+
+# 사용자 존재 확인
+if ! id "$USERNAME" &>/dev/null; then
+    echo -e "${RED}[ERROR]${NC} 사용자를 찾을 수 없습니다: $USERNAME"
+    echo ""
+    echo "사용 가능한 VPN:"
+    for iface in $(wg show interfaces 2>/dev/null); do
+        if [[ "$iface" =~ ^wg[0-9]+$ ]]; then
+            NUM="${iface#wg}"
+            U="vpn${NUM}"
+        else
+            U="vpn-${iface#wg-}"
+        fi
+        if id "$U" &>/dev/null; then
+            echo "  $U"
+        fi
+    done
+    exit 1
+fi
+
+# 실행
+echo -e "${BLUE}[VPN]${NC} $USERNAME 사용자로 실행..."
+sudo -u "$USERNAME" "$@"
+EXIT_CODE=$?
+
+if [ $EXIT_CODE -eq 0 ]; then
+    echo -e "${GREEN}[VPN]${NC} 완료 (exit code: $EXIT_CODE)"
+else
+    echo -e "${RED}[VPN]${NC} 실패 (exit code: $EXIT_CODE)"
+fi
+
+exit $EXIT_CODE
