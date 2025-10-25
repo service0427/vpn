@@ -37,23 +37,6 @@ if [ "$EUID" -ne 0 ]; then
     exit 1
 fi
 
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo -e "${BLUE}📝 VPN 서버 설치${NC}"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo ""
-
-# VPN 이름 입력
-read -p "VPN 이름 입력 (예: korea1, usa1): " VPN_NAME
-if [ -z "$VPN_NAME" ]; then
-    log_error "VPN 이름을 입력하세요"
-    exit 1
-fi
-
-# 지역 코드 입력 (선택)
-read -p "지역 코드 (예: KR, US, JP) [선택]: " REGION
-REGION=${REGION:-""}
-
-log_info "VPN 이름: $VPN_NAME"
 log_info "VPN 서버 설치를 시작합니다..."
 
 # OS 감지
@@ -96,10 +79,17 @@ log_success "메인 인터페이스: $MAIN_INTERFACE"
 log_info "공인 IP 확인 중..."
 PUBLIC_IP=$(curl -s ifconfig.me || curl -s icanhazip.com || echo "")
 if [ -z "$PUBLIC_IP" ]; then
-    log_warn "공인 IP를 자동으로 감지할 수 없습니다"
-    read -p "서버의 공인 IP를 입력하세요: " PUBLIC_IP
+    log_error "공인 IP를 자동으로 감지할 수 없습니다"
+    exit 1
 fi
 log_success "공인 IP: $PUBLIC_IP"
+
+# VPN 이름 자동 생성 (IP 기반)
+VPN_NAME="vpn-$(echo $PUBLIC_IP | tr '.' '-')"
+REGION="KR"
+
+log_info "VPN 이름 자동 생성: $VPN_NAME"
+log_info "지역 코드: $REGION"
 
 # WireGuard 및 필수 도구 설치
 log_info "WireGuard 및 필수 도구 설치 중..."
