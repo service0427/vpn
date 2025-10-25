@@ -80,7 +80,7 @@ fi
 log_info "모든 VPN을 비활성 상태로 설정..."
 for iface in $ALL_INTERFACES; do
     # 기존 라우트 찾기
-    GATEWAY=$(ip route show dev $iface | grep "^10\." | awk '{print $1}' | sed 's/\/.*$/\.1/')
+    GATEWAY=$(ip route show dev $iface | grep "^10\." | awk '{print $1}' | awk -F'/' '{print $1}' | sed 's/\.0$/\.1/')
 
     if [ ! -z "$GATEWAY" ]; then
         # 기존 default 라우트 제거
@@ -102,7 +102,7 @@ if [ "$ACTIVE_INTERFACE" != "none" ]; then
     fi
 
     # 게이트웨이 주소 찾기
-    GATEWAY=$(ip route show dev $ACTIVE_INTERFACE | grep "^10\." | awk '{print $1}' | sed 's/\/.*$/\.1/')
+    GATEWAY=$(ip route show dev $ACTIVE_INTERFACE | grep "^10\." | awk '{print $1}' | awk -F'/' '{print $1}' | sed 's/\.0$/\.1/')
 
     if [ -z "$GATEWAY" ]; then
         log_error "게이트웨이 주소를 찾을 수 없습니다: $ACTIVE_INTERFACE"
