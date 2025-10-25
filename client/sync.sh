@@ -1,8 +1,8 @@
 #!/bin/bash
 
 #######################################
-# VPN 목록 동기화 (API 기반)
-# 사용법: ./sync.sh <JSON_URL>
+# VPN 목록 동기화 (DB 기반)
+# 사용법: ./sync.sh
 #######################################
 
 set -e
@@ -18,52 +18,51 @@ log_success() { echo -e "${GREEN}[SUCCESS]${NC} $1"; }
 log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 log_warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
 
-# 사용법
-if [ $# -lt 1 ]; then
-    echo "사용법: $0 <JSON_URL>"
-    echo ""
-    echo "예시:"
-    echo "  $0 http://112.161.221.9:8080/vpn-list.json"
-    echo "  $0 https://api.yourserver.com/vpn-list.json"
-    exit 1
-fi
-
 # Root 권한 확인
 if [ "$EUID" -ne 0 ]; then
     log_error "root 권한 필요"
     exit 1
 fi
 
-JSON_URL=$1
+# DB 정보
+DB_HOST="220.121.120.83"
+DB_USER="vpnuser"
+DB_PASS="vpn1324"
+DB_NAME="vpn"
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo -e "${BLUE}🔄 VPN 목록 동기화${NC}"
+echo -e "${BLUE}🔄 VPN 목록 동기화 (DB)${NC}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 
-# JSON 다운로드
-log_info "VPN 목록 다운로드 중..."
-TEMP_JSON="/tmp/vpn-list.json"
-
-if ! curl -sf -o "$TEMP_JSON" "$JSON_URL"; then
-    log_error "JSON 다운로드 실패: $JSON_URL"
+# MySQL 클라이언트 확인
+if ! command -v mysql &> /dev/null; then
+    log_error "MySQL 클라이언트가 설치되지 않았습니다"
+    log_info "설치: dnf install -y mysql (Rocky) 또는 apt install -y mysql-client (Ubuntu)"
     exit 1
 fi
 
-# JSON 유효성 검사
-if ! python3 -m json.tool "$TEMP_JSON" > /dev/null 2>&1; then
-    log_error "잘못된 JSON 형식"
-    rm -f "$TEMP_JSON"
+# DB 연결 테스트
+log_info "DB 연결 중: $DB_HOST"
+if ! mysql -h $DB_HOST -u $DB_USER -p"$DB_PASS" -D $DB_NAME -e "SELECT 1" &>/dev/null; then
+    log_error "DB 연결 실패"
     exit 1
 fi
+log_success "DB 연결 성공"
 
-log_success "VPN 목록 다운로드 완료"
+# VPN 목록 조회
+log_info "VPN 목록 조회 중..."
+VPN_COUNT=$(mysql -h $DB_HOST -u $DB_USER -p"$DB_PASS" -D $DB_NAME -sN -e "SELECT COUNT(*) FROM vpn_servers WHERE status='active'" 2>/dev/null)
 
-# VPN 개수 확인
-VPN_COUNT=$(python3 -c "import json; print(len(json.load(open('$TEMP_JSON'))['vpns']))")
-log_info "총 ${VPN_COUNT}개의 VPN 발견"
+if [ "$VPN_COUNT" -eq 0 ]; then
+    log_warn "활성 VPN이 없습니다"
+    log_info "먼저 VPN 서버에서 setup.sh를 실행하세요"
+    exit 0
+fi
 
-# 기존 VPN 인터페이스 백업
+log_success "총 ${VPN_COUNT}개의 활성 VPN 발견"
+
+# 기존 VPN 확인
 EXISTING_VPNS=$(wg show interfaces 2>/dev/null || echo "")
 if [ ! -z "$EXISTING_VPNS" ]; then
     log_warn "기존 VPN 인터페이스: $EXISTING_VPNS"
@@ -71,7 +70,6 @@ if [ ! -z "$EXISTING_VPNS" ]; then
     echo
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then
         log_info "동기화 취소됨"
-        rm -f "$TEMP_JSON"
         exit 0
     fi
 
@@ -88,36 +86,22 @@ fi
 echo ""
 log_info "VPN 추가 시작..."
 
-python3 << 'EOPY'
-import json
-import sys
+# DB에서 VPN 목록 가져와서 처리
+mysql -h $DB_HOST -u $DB_USER -p"$DB_PASS" -D $DB_NAME -sN << 'EOSQL' | while IFS=$'\t' read -r name host interface; do
+SELECT name, host, interface
+FROM vpn_servers
+WHERE status = 'active'
+ORDER BY created_at;
+EOSQL
+    echo ""
+    log_info "[$name] 추가 중..."
 
-with open('/tmp/vpn-list.json') as f:
-    data = json.load(f)
-
-for vpn in data['vpns']:
-    print(f"{vpn['name']}|{vpn['host']}|{vpn['interface']}")
-EOPY
-
-python3 << 'EOPY' > /tmp/vpn-commands.sh
-import json
-
-with open('/tmp/vpn-list.json') as f:
-    data = json.load(f)
-
-print("#!/bin/bash")
-for i, vpn in enumerate(data['vpns']):
-    name = vpn['name']
-    host = vpn['host']
-    iface = vpn['interface']
-    print(f"echo ''; echo '[{i+1}/{len(data['vpns'])}] {name} 추가 중...'")
-    print(f"./add.sh {host} {iface} || echo 'FAILED: {name}'")
-EOPY
-
-chmod +x /tmp/vpn-commands.sh
-bash /tmp/vpn-commands.sh
-
-rm -f /tmp/vpn-commands.sh
+    if ./add.sh "$host" "$interface"; then
+        log_success "[$name] 추가 완료"
+    else
+        log_error "[$name] 추가 실패"
+    fi
+done 2>/dev/null
 
 # setup-vpnusers.sh 실행
 echo ""
@@ -136,11 +120,23 @@ log_success "VPN 동기화 완료!"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 echo -e "${BLUE}📊 설정된 VPN:${NC}"
-wg show interfaces
+wg show interfaces | tr ' ' '\n' | nl
 echo ""
 echo -e "${GREEN}✅ 사용법:${NC}"
-echo "  vpn korea1 python crawl.py"
-echo "  vpn korea2 curl https://naver.com"
-echo ""
 
-rm -f "$TEMP_JSON"
+# VPN별 사용자명 표시
+for iface in $(wg show interfaces 2>/dev/null); do
+    if [[ "$iface" =~ ^wg[0-9]+$ ]]; then
+        NUM="${iface#wg}"
+        USERNAME="vpn${NUM}"
+    else
+        USERNAME="vpn-${iface#wg-}"
+    fi
+
+    # DB에서 VPN 이름 조회
+    VPN_NAME=$(mysql -h $DB_HOST -u $DB_USER -p"$DB_PASS" -D $DB_NAME -sN -e "SELECT name FROM vpn_servers WHERE interface='$iface' LIMIT 1" 2>/dev/null || echo "unknown")
+
+    echo "  vpn $USERNAME python crawl.py  # $VPN_NAME ($iface)"
+done 2>/dev/null
+
+echo ""
