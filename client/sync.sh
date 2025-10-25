@@ -90,27 +90,32 @@ fi
 echo ""
 log_info "VPN 추가 시작..."
 
-echo "$VPN_LIST" | jq -r '.vpns[] | "\(.name)\t\(.interface)"' | while IFS=$'\t' read -r name interface; do
+VPN_INDEX=0
+echo "$VPN_LIST" | jq -r '.vpns[] | "\(.name)"' | while read -r name; do
     echo ""
-    log_info "[$name] 추가 중..."
+    # 간단한 인터페이스 이름 사용 (wg0, wg1, wg2, ...)
+    INTERFACE="wg${VPN_INDEX}"
+    log_info "[$name] → $INTERFACE 추가 중..."
 
     # API에서 클라이언트 설정 다운로드
-    TEMP_FILE="/tmp/vpn-config-${interface}.conf"
+    TEMP_FILE="/tmp/vpn-config-${INTERFACE}.conf"
 
     if ! curl -s -f "http://$API_HOST/api/vpn/$name/config" > "$TEMP_FILE"; then
         log_error "[$name] 설정 다운로드 실패"
         rm -f "$TEMP_FILE"
+        VPN_INDEX=$((VPN_INDEX + 1))
         continue
     fi
 
     if [ ! -s "$TEMP_FILE" ]; then
         log_error "[$name] 설정 파일이 비어있습니다"
         rm -f "$TEMP_FILE"
+        VPN_INDEX=$((VPN_INDEX + 1))
         continue
     fi
 
     # 설정 파일 복사 및 수정
-    TARGET_CONF="/etc/wireguard/${interface}.conf"
+    TARGET_CONF="/etc/wireguard/${INTERFACE}.conf"
     cp "$TEMP_FILE" "$TARGET_CONF"
     chmod 600 "$TARGET_CONF"
 
@@ -125,20 +130,22 @@ echo "$VPN_LIST" | jq -r '.vpns[] | "\(.name)\t\(.interface)"' | while IFS=$'\t'
     rm -f "$TEMP_FILE"
 
     # VPN 시작
-    systemctl enable wg-quick@${interface} 2>/dev/null
-    systemctl restart wg-quick@${interface}
+    systemctl enable wg-quick@${INTERFACE} 2>/dev/null
+    systemctl restart wg-quick@${INTERFACE}
 
-    if systemctl is-active --quiet wg-quick@${interface}; then
-        log_success "[$name] 추가 완료"
+    if systemctl is-active --quiet wg-quick@${INTERFACE}; then
+        log_success "[$name] → $INTERFACE 추가 완료"
 
         # 라우트 추가 (비활성 상태)
         VPN_IP=$(grep "Address" "$TARGET_CONF" | head -n1 | cut -d'=' -f2 | cut -d'/' -f1 | tr -d ' ')
         VPN_GATEWAY=$(echo $VPN_IP | awk -F'.' '{print $1"."$2"."$3".1"}')
-        ip route add default via $VPN_GATEWAY dev $interface metric 900 2>/dev/null || true
+        ip route add default via $VPN_GATEWAY dev $INTERFACE metric 900 2>/dev/null || true
     else
-        log_error "[$name] VPN 시작 실패"
-        journalctl -u wg-quick@${interface} -n 10 --no-pager
+        log_error "[$name] → $INTERFACE VPN 시작 실패"
+        journalctl -u wg-quick@${INTERFACE} -n 10 --no-pager
     fi
+
+    VPN_INDEX=$((VPN_INDEX + 1))
 done
 
 # setup-vpnusers.sh 실행
@@ -172,7 +179,7 @@ for iface in $(wg show interfaces 2>/dev/null); do
     fi
 
     # API에서 VPN 이름 조회
-    VPN_INFO=$(echo "$VPN_LIST" | jq -r ".vpns[] | select(.interface==\"$iface\") | .name")
+    VPN_INFO=$(echo "$VPN_LIST" | jq -r ".vpns[$NUM].name // \"unknown\"")
     VPN_NAME=${VPN_INFO:-"unknown"}
 
     echo "  vpn $USERNAME python crawl.py  # $VPN_NAME ($iface)"
