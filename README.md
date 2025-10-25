@@ -41,11 +41,14 @@ chmod +x *.sh
 # 초기 설치
 sudo ./setup-vpn-client.sh
 
-# VPS1 연결 추가
-sudo ./add-vpn.sh wg0 ~/vps1-client.conf
+# VPN 추가 (Interactive - 복사-붙여넣기)
+sudo ./add-vpn-interactive.sh
+# 인터페이스명 입력: wg0
+# 방법 선택: 1 (복사-붙여넣기)
+# 서버 설정 붙여넣기 후 Ctrl+D
 
-# VPS2 연결 추가
-sudo ./add-vpn.sh wg1 ~/vps2-client.conf
+# 또는 파일로 추가
+sudo ./add-vpn.sh wg0 ~/vps1-client.conf
 
 # SSH 보호
 sudo ./protect-ssh.sh
