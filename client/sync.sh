@@ -90,14 +90,54 @@ fi
 echo ""
 log_info "VPN 추가 시작..."
 
-echo "$VPN_LIST" | jq -r '.vpns[] | "\(.name)\t\(.host)\t\(.interface)"' | while IFS=$'\t' read -r name host interface; do
+echo "$VPN_LIST" | jq -r '.vpns[] | "\(.name)\t\(.interface)"' | while IFS=$'\t' read -r name interface; do
     echo ""
     log_info "[$name] 추가 중..."
 
-    if ./add.sh "$host" "$interface"; then
+    # API에서 클라이언트 설정 다운로드
+    TEMP_FILE="/tmp/vpn-config-${interface}.conf"
+
+    if ! curl -s -f "http://$API_HOST/api/vpn/$name/config" > "$TEMP_FILE"; then
+        log_error "[$name] 설정 다운로드 실패"
+        rm -f "$TEMP_FILE"
+        continue
+    fi
+
+    if [ ! -s "$TEMP_FILE" ]; then
+        log_error "[$name] 설정 파일이 비어있습니다"
+        rm -f "$TEMP_FILE"
+        continue
+    fi
+
+    # 설정 파일 복사 및 수정
+    TARGET_CONF="/etc/wireguard/${interface}.conf"
+    cp "$TEMP_FILE" "$TARGET_CONF"
+    chmod 600 "$TARGET_CONF"
+
+    # Table = off 추가 (수동 라우팅)
+    if ! grep -q "Table = off" "$TARGET_CONF"; then
+        sed -i '/\[Interface\]/a Table = off' "$TARGET_CONF"
+    fi
+
+    # DNS 제거 (Rocky Linux 10 호환성)
+    sed -i '/^DNS/d' "$TARGET_CONF"
+
+    rm -f "$TEMP_FILE"
+
+    # VPN 시작
+    systemctl enable wg-quick@${interface} 2>/dev/null
+    systemctl restart wg-quick@${interface}
+
+    if systemctl is-active --quiet wg-quick@${interface}; then
         log_success "[$name] 추가 완료"
+
+        # 라우트 추가 (비활성 상태)
+        VPN_IP=$(grep "Address" "$TARGET_CONF" | head -n1 | cut -d'=' -f2 | cut -d'/' -f1 | tr -d ' ')
+        VPN_GATEWAY=$(echo $VPN_IP | awk -F'.' '{print $1"."$2"."$3".1"}')
+        ip route add default via $VPN_GATEWAY dev $interface metric 900 2>/dev/null || true
     else
-        log_error "[$name] 추가 실패"
+        log_error "[$name] VPN 시작 실패"
+        journalctl -u wg-quick@${interface} -n 10 --no-pager
     fi
 done
 
