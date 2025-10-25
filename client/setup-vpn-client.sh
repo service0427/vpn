@@ -68,13 +68,28 @@ esac
 # 필수 패키지 설치
 log_info "필수 패키지 설치 중..."
 $PKG_UPDATE
-$PKG_INSTALL wireguard-tools iproute curl
+
+case $OS in
+    rocky|centos|rhel|fedora)
+        # Rocky Linux 10+는 iptables가 기본 설치 안됨
+        $PKG_INSTALL wireguard-tools iproute curl iptables iptables-services
+        ;;
+    ubuntu|debian)
+        $PKG_INSTALL wireguard-tools iproute2 curl iptables
+        ;;
+esac
 
 if ! command -v wg &> /dev/null; then
     log_error "WireGuard 설치 실패"
     exit 1
 fi
-log_success "WireGuard 설치 완료"
+
+if ! command -v iptables &> /dev/null; then
+    log_error "iptables 설치 실패"
+    exit 1
+fi
+
+log_success "WireGuard 및 필수 도구 설치 완료"
 
 # WireGuard 디렉토리 생성
 mkdir -p /etc/wireguard

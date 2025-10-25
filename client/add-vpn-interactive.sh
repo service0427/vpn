@@ -100,6 +100,13 @@ if ! grep -q "Table = off" "$TARGET_CONF"; then
     log_info "Table = off 설정 추가 (수동 라우팅)"
 fi
 
+# DNS 설정 제거 (systemd-resolved 없을 경우 문제 발생)
+# DNS는 선택사항이므로 제거해도 무방
+if grep -q "^DNS" "$TARGET_CONF"; then
+    sed -i '/^DNS/d' "$TARGET_CONF"
+    log_info "DNS 설정 제거 (호환성)"
+fi
+
 # 임시 파일 삭제
 if [ "$METHOD" == "1" ]; then
     rm -f "$TEMP_FILE"
