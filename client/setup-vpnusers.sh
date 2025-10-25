@@ -70,11 +70,11 @@ for iface in $INTERFACES; do
     # 사용자 생성 (이미 존재하면 스킵)
     if id "$USERNAME" &>/dev/null; then
         log_warn "  사용자 이미 존재: $USERNAME"
-        UID=$(id -u $USERNAME)
+        USER_UID=$(id -u $USERNAME)
     else
         useradd -m -s /bin/bash "$USERNAME" 2>/dev/null
-        UID=$(id -u $USERNAME)
-        log_success "  사용자 생성 완료 (UID: $UID)"
+        USER_UID=$(id -u $USERNAME)
+        log_success "  사용자 생성 완료 (UID: $USER_UID)"
     fi
 
     # VPN 게이트웨이 IP 추출
@@ -91,11 +91,11 @@ for iface in $INTERFACES; do
     log_info "  라우팅 테이블 설정 (table $TABLE_ID)..."
 
     # 기존 규칙 제거
-    ip rule del uidrange $UID-$UID 2>/dev/null || true
+    ip rule del uidrange $USER_UID-$USER_UID 2>/dev/null || true
     ip route flush table $TABLE_ID 2>/dev/null || true
 
     # 새 규칙 추가
-    ip rule add uidrange $UID-$UID table $TABLE_ID priority 100
+    ip rule add uidrange $USER_UID-$USER_UID table $TABLE_ID priority 100
     ip route add default via $GATEWAY dev $iface table $TABLE_ID
 
     log_success "  [$iface] → [$USERNAME] 라우팅 설정 완료"
@@ -140,8 +140,8 @@ for iface in $INTERFACES; do
     fi
 
     if id "$USERNAME" &>/dev/null; then
-        UID=$(id -u $USERNAME)
-        echo "  - $USERNAME (UID: $UID) → $iface"
+        USER_UID=$(id -u $USERNAME)
+        echo "  - $USERNAME (UID: $USER_UID) → $iface"
     fi
 done
 echo ""
