@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #######################################
-# VPN 목록 동기화 (DB 기반)
+# VPN 목록 동기화 (API 기반)
 # 사용법: ./sync.sh
 #######################################
 
@@ -24,35 +24,39 @@ if [ "$EUID" -ne 0 ]; then
     exit 1
 fi
 
-# DB 정보
-DB_HOST="220.121.120.83"
-DB_USER="vpnuser"
-DB_PASS="vpn1324"
-DB_NAME="vpn"
+# API 정보
+API_HOST="220.121.120.83"
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo -e "${BLUE}🔄 VPN 목록 동기화 (DB)${NC}"
+echo -e "${BLUE}🔄 VPN 목록 동기화 (API)${NC}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 
-# MySQL 클라이언트 확인
-if ! command -v mysql &> /dev/null; then
-    log_error "MySQL 클라이언트가 설치되지 않았습니다"
-    log_info "설치: dnf install -y mysql (Rocky) 또는 apt install -y mysql-client (Ubuntu)"
+# curl, jq 확인
+if ! command -v curl &> /dev/null; then
+    log_error "curl이 설치되지 않았습니다"
     exit 1
 fi
 
-# DB 연결 테스트
-log_info "DB 연결 중: $DB_HOST"
-if ! mysql -h $DB_HOST -u $DB_USER -p"$DB_PASS" -D $DB_NAME -e "SELECT 1" &>/dev/null; then
-    log_error "DB 연결 실패"
+if ! command -v jq &> /dev/null; then
+    log_error "jq가 설치되지 않았습니다"
+    log_info "설치: dnf install -y jq (Rocky) 또는 apt install -y jq (Ubuntu)"
     exit 1
 fi
-log_success "DB 연결 성공"
+
+# API 연결 테스트
+log_info "API 연결 중: $API_HOST"
+if ! curl -s -f http://$API_HOST/health > /dev/null; then
+    log_error "API 연결 실패"
+    exit 1
+fi
+log_success "API 연결 성공"
 
 # VPN 목록 조회
 log_info "VPN 목록 조회 중..."
-VPN_COUNT=$(mysql -h $DB_HOST -u $DB_USER -p"$DB_PASS" -D $DB_NAME -sN -e "SELECT COUNT(*) FROM vpn_servers WHERE status='active'" 2>/dev/null)
+VPN_LIST=$(curl -s http://$API_HOST/api/vpn/list)
+
+VPN_COUNT=$(echo "$VPN_LIST" | jq '.vpns | length')
 
 if [ "$VPN_COUNT" -eq 0 ]; then
     log_warn "활성 VPN이 없습니다"
@@ -86,13 +90,7 @@ fi
 echo ""
 log_info "VPN 추가 시작..."
 
-# DB에서 VPN 목록 가져와서 처리
-mysql -h $DB_HOST -u $DB_USER -p"$DB_PASS" -D $DB_NAME -sN << 'EOSQL' | while IFS=$'\t' read -r name host interface; do
-SELECT name, host, interface
-FROM vpn_servers
-WHERE status = 'active'
-ORDER BY created_at;
-EOSQL
+echo "$VPN_LIST" | jq -r '.vpns[] | "\(.name)\t\(.host)\t\(.interface)"' | while IFS=$'\t' read -r name host interface; do
     echo ""
     log_info "[$name] 추가 중..."
 
@@ -101,7 +99,7 @@ EOSQL
     else
         log_error "[$name] 추가 실패"
     fi
-done 2>/dev/null
+done
 
 # setup-vpnusers.sh 실행
 echo ""
@@ -133,10 +131,11 @@ for iface in $(wg show interfaces 2>/dev/null); do
         USERNAME="vpn-${iface#wg-}"
     fi
 
-    # DB에서 VPN 이름 조회
-    VPN_NAME=$(mysql -h $DB_HOST -u $DB_USER -p"$DB_PASS" -D $DB_NAME -sN -e "SELECT name FROM vpn_servers WHERE interface='$iface' LIMIT 1" 2>/dev/null || echo "unknown")
+    # API에서 VPN 이름 조회
+    VPN_INFO=$(echo "$VPN_LIST" | jq -r ".vpns[] | select(.interface==\"$iface\") | .name")
+    VPN_NAME=${VPN_INFO:-"unknown"}
 
     echo "  vpn $USERNAME python crawl.py  # $VPN_NAME ($iface)"
-done 2>/dev/null
+done
 
 echo ""
