@@ -3,23 +3,20 @@
 #######################################
 # VPN Wrapper - 간편한 VPN 실행 도구
 # 사용법: vpn <번호|이름> <명령어>
+#        vpn (대화형 선택)
 #######################################
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
+YELLOW='\033[1;33m'
 NC='\033[0m'
 
-# 사용법
-if [ $# -lt 2 ]; then
-    echo "사용법: vpn <VPN번호|이름> <명령어>"
-    echo ""
-    echo "예시:"
-    echo "  vpn 0 python crawl.py"
-    echo "  vpn 1 curl https://naver.com"
-    echo "  vpn kr1 python crawl.py"
-    echo ""
-    echo "VPN 목록:"
+# VPN 목록 가져오기
+get_vpn_list() {
+    declare -A vpn_map
+    local index=1
+
     for iface in $(wg show interfaces 2>/dev/null); do
         if [[ "$iface" =~ ^wg[0-9]+$ ]]; then
             NUM="${iface#wg}"
@@ -27,11 +24,129 @@ if [ $# -lt 2 ]; then
         else
             USERNAME="vpn-${iface#wg-}"
         fi
+
         if id "$USERNAME" &>/dev/null; then
-            UID=$(id -u $USERNAME)
-            echo "  $USERNAME → $iface (UID: $UID)"
+            vpn_map[$index]="$USERNAME:$iface"
+            ((index++))
         fi
     done
+
+    echo "${vpn_map[@]}"
+}
+
+# VPN 목록 출력
+print_vpn_list() {
+    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${GREEN}  사용 가능한 VPN 목록${NC}"
+    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+
+    local index=1
+    for iface in $(wg show interfaces 2>/dev/null); do
+        if [[ "$iface" =~ ^wg[0-9]+$ ]]; then
+            NUM="${iface#wg}"
+            USERNAME="vpn${NUM}"
+        else
+            USERNAME="vpn-${iface#wg-}"
+        fi
+
+        if id "$USERNAME" &>/dev/null; then
+            UID=$(id -u $USERNAME)
+            # VPN IP 가져오기
+            VPN_IP=$(ip addr show $iface 2>/dev/null | grep "inet " | awk '{print $2}' | cut -d'/' -f1)
+            echo -e "  ${YELLOW}[$index]${NC} $USERNAME → $iface (IP: $VPN_IP)"
+            ((index++))
+        fi
+    done
+    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+}
+
+# 대화형 모드
+interactive_mode() {
+    print_vpn_list
+    echo ""
+    read -p "VPN 번호를 선택하세요: " choice
+    echo ""
+
+    if ! [[ "$choice" =~ ^[0-9]+$ ]]; then
+        echo -e "${RED}[ERROR]${NC} 숫자를 입력하세요"
+        exit 1
+    fi
+
+    # 선택한 VPN 찾기
+    local index=1
+    local selected_username=""
+
+    for iface in $(wg show interfaces 2>/dev/null); do
+        if [[ "$iface" =~ ^wg[0-9]+$ ]]; then
+            NUM="${iface#wg}"
+            USERNAME="vpn${NUM}"
+        else
+            USERNAME="vpn-${iface#wg-}"
+        fi
+
+        if id "$USERNAME" &>/dev/null; then
+            if [ $index -eq $choice ]; then
+                selected_username=$USERNAME
+                break
+            fi
+            ((index++))
+        fi
+    done
+
+    if [ -z "$selected_username" ]; then
+        echo -e "${RED}[ERROR]${NC} 잘못된 선택입니다"
+        exit 1
+    fi
+
+    echo -e "${GREEN}[선택됨]${NC} $selected_username"
+    echo ""
+    read -p "실행할 명령어를 입력하세요: " -e -i "curl ifconfig.me" command
+    echo ""
+
+    echo -e "${BLUE}[VPN]${NC} $selected_username 사용자로 실행..."
+    sudo -u "$selected_username" bash -c "$command"
+    EXIT_CODE=$?
+
+    echo ""
+    if [ $EXIT_CODE -eq 0 ]; then
+        echo -e "${GREEN}[완료]${NC} exit code: $EXIT_CODE"
+    else
+        echo -e "${RED}[실패]${NC} exit code: $EXIT_CODE"
+    fi
+
+    exit $EXIT_CODE
+}
+
+# 사용법 출력
+show_usage() {
+    echo "사용법: vpn [VPN번호|이름] [명령어]"
+    echo ""
+    echo "대화형 모드:"
+    echo "  vpn                        # 대화형 메뉴 표시"
+    echo ""
+    echo "직접 실행:"
+    echo "  vpn 0 curl ifconfig.me     # vpn0으로 실행"
+    echo "  vpn 1 python crawl.py      # vpn1으로 실행"
+    echo "  vpn kr1 curl ifconfig.me   # vpn-kr1으로 실행"
+    echo ""
+    print_vpn_list
+}
+
+# 인자가 없으면 대화형 모드
+if [ $# -eq 0 ]; then
+    interactive_mode
+    exit 0
+fi
+
+# 도움말
+if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
+    show_usage
+    exit 0
+fi
+
+# CLI 모드
+if [ $# -lt 2 ]; then
+    show_usage
     exit 1
 fi
 
@@ -51,18 +166,7 @@ fi
 if ! id "$USERNAME" &>/dev/null; then
     echo -e "${RED}[ERROR]${NC} 사용자를 찾을 수 없습니다: $USERNAME"
     echo ""
-    echo "사용 가능한 VPN:"
-    for iface in $(wg show interfaces 2>/dev/null); do
-        if [[ "$iface" =~ ^wg[0-9]+$ ]]; then
-            NUM="${iface#wg}"
-            U="vpn${NUM}"
-        else
-            U="vpn-${iface#wg-}"
-        fi
-        if id "$U" &>/dev/null; then
-            echo "  $U"
-        fi
-    done
+    print_vpn_list
     exit 1
 fi
 
@@ -72,9 +176,9 @@ sudo -u "$USERNAME" "$@"
 EXIT_CODE=$?
 
 if [ $EXIT_CODE -eq 0 ]; then
-    echo -e "${GREEN}[VPN]${NC} 완료 (exit code: $EXIT_CODE)"
+    echo -e "${GREEN}[완료]${NC} exit code: $EXIT_CODE"
 else
-    echo -e "${RED}[VPN]${NC} 실패 (exit code: $EXIT_CODE)"
+    echo -e "${RED}[실패]${NC} exit code: $EXIT_CODE"
 fi
 
 exit $EXIT_CODE
