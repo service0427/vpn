@@ -25,11 +25,9 @@ WireGuard VPN을 사용한 IP 롤링 시스템 - HTTP/2, HTTP/3 완벽 지원
 ```bash
 git clone https://github.com/service0427/vpn.git
 cd vpn/server
-chmod +x setup-vpn-server.sh
-sudo ./setup-vpn-server.sh
+chmod +x setup.sh
+sudo ./setup.sh
 ```
-
-출력된 **클라이언트 설정 파일**을 복사하세요!
 
 ### 2단계: 크롤링 서버에 VPN 클라이언트 설치
 
@@ -39,38 +37,33 @@ cd vpn/client
 chmod +x *.sh
 
 # 초기 설치
-sudo ./setup-vpn-client.sh
+sudo ./setup.sh
 
-# VPN 추가 (Interactive - 복사-붙여넣기)
-sudo ./add-vpn-interactive.sh
-# 인터페이스명 입력: wg0
-# 방법 선택: 1 (복사-붙여넣기)
-# 서버 설정 붙여넣기 후 Ctrl+D
-
-# 또는 파일로 추가
-sudo ./add-vpn.sh wg0 ~/vps1-client.conf
+# VPN 추가 (SSH 자동 다운로드)
+sudo ./add.sh root@112.161.221.9 wg0
+sudo ./add.sh root@112.161.221.10 wg1
 
 # SSH 보호
-sudo ./protect-ssh.sh
+sudo ./protect.sh
 ```
 
 ### 3단계: VPN 사용
 
 ```bash
 # VPN1 활성화 (VPS1 IP 사용)
-sudo ./switch-vpn.sh 1
+sudo ./switch.sh 1
 
 # IP 확인
 curl ifconfig.me
 
 # VPN2로 전환 (VPS2 IP 사용)
-sudo ./switch-vpn.sh 2
+sudo ./switch.sh 2
 
 # IP 확인
 curl ifconfig.me
 
 # VPN 비활성화 (메인 IP 사용)
-sudo ./switch-vpn.sh 0
+sudo ./switch.sh 0
 ```
 
 ## 📚 스크립트 설명
@@ -79,17 +72,17 @@ sudo ./switch-vpn.sh 0
 
 | 스크립트 | 설명 |
 |---------|------|
-| `setup-vpn-server.sh` | VPN 서버 자동 설치 및 설정 |
+| `setup.sh` | VPN 서버 자동 설치 및 설정 |
 
 ### 클라이언트용 (크롤링 서버)
 
 | 스크립트 | 설명 |
 |---------|------|
-| `setup-vpn-client.sh` | 초기 설치 (WireGuard 등) |
-| `add-vpn.sh` | 새로운 VPN 연결 추가 |
-| `switch-vpn.sh` | VPN 전환 (IP 롤링) |
-| `protect-ssh.sh` | SSH 보호 설정 |
-| `test-vpn.sh` | VPN 상태 종합 테스트 |
+| `setup.sh` | 초기 설치 (WireGuard 등) |
+| `add.sh` | VPN 추가 (SSH 자동 다운로드) |
+| `switch.sh` | VPN 전환 (IP 롤링) |
+| `protect.sh` | SSH 보호 설정 |
+| `test.sh` | VPN 상태 종합 테스트 |
 
 ## 💻 사용 예제
 
@@ -103,7 +96,7 @@ response = requests.get("https://www.naver.com")
 print(response.status_code)
 
 # VPN 전환 (터미널에서)
-# sudo ./switch-vpn.sh 2
+# sudo ./switch.sh 2
 
 # 이제 다른 IP로 요청됨 (코드 수정 없음!)
 response = requests.get("https://www.naver.com")
@@ -124,23 +117,23 @@ async with async_playwright() as p:
 
 ## 🛡️ SSH 보호
 
-`protect-ssh.sh`를 실행하면:
+`protect.sh`를 실행하면:
 - VPN 활성화 중에도 SSH 연결 유지
 - 새로운 SSH 연결도 메인 IP로 연결
 - Policy routing으로 구현
 
 ```bash
-sudo ./protect-ssh.sh
+sudo ./protect.sh
 
 # VPN 전환해도 SSH 끊기지 않음!
-sudo ./switch-vpn.sh 1
+sudo ./switch.sh 1
 ```
 
 ## 🔍 모니터링
 
 ```bash
 # VPN 상태 종합 확인
-sudo ./test-vpn.sh
+sudo ./test.sh
 
 # 수동 확인
 sudo wg show              # WireGuard 상태
@@ -214,7 +207,7 @@ sudo systemctl restart wg-quick@wg0
 ip route show | grep default
 
 # Metric 확인 - 50이 없으면 문제
-sudo ./switch-vpn.sh 1
+sudo ./switch.sh 1
 ip route show | grep "metric 50"
 ```
 
@@ -249,23 +242,23 @@ MIT License
 # VPS1 설정
 ssh vps1
 git clone https://github.com/service0427/vpn.git
-cd vpn/server && sudo ./setup-vpn-server.sh
+cd vpn/server && sudo ./setup.sh
 
 # VPS2 설정
 ssh vps2
 git clone https://github.com/service0427/vpn.git
-cd vpn/server && sudo ./setup-vpn-server.sh
+cd vpn/server && sudo ./setup.sh
 
 # 크롤링 서버 설정
 git clone https://github.com/service0427/vpn.git
 cd vpn/client
-sudo ./setup-vpn-client.sh
-sudo ./add-vpn.sh wg0 ~/vps1.conf
-sudo ./add-vpn.sh wg1 ~/vps2.conf
-sudo ./protect-ssh.sh
+sudo ./setup.sh
+sudo ./add.sh root@vps1 wg0
+sudo ./add.sh root@vps2 wg1
+sudo ./protect.sh
 
 # 테스트!
-sudo ./switch-vpn.sh 1 && curl ifconfig.me
+sudo ./switch.sh 1 && curl ifconfig.me
 ```
 
 **Happy IP Rotating! 🚀**
