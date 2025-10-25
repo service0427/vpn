@@ -37,37 +37,23 @@ if [ "$EUID" -ne 0 ]; then
     exit 1
 fi
 
-# Check for existing VPN installation
+# Check for existing VPN installation and remove automatically
 if systemctl is-active --quiet wg-quick@wg0 2>/dev/null || [ -f /etc/wireguard/wg0.conf ]; then
-    log_warn "기존 VPN 설정이 발견되었습니다"
-    echo ""
-    echo "옵션을 선택하세요:"
-    echo "  1) 기존 설정 제거 후 재설치 (권장)"
-    echo "  2) 설치 취소"
-    echo ""
-    read -p "선택 (1 또는 2): " -n 1 -r REINSTALL_CHOICE
-    echo ""
+    log_warn "기존 VPN 설정 발견 - 자동 제거 후 재설치"
 
-    if [ "$REINSTALL_CHOICE" = "1" ]; then
-        log_info "기존 VPN 설정 제거 중..."
+    # Stop service
+    systemctl stop wg-quick@wg0 2>/dev/null || true
+    systemctl disable wg-quick@wg0 2>/dev/null || true
 
-        # Stop service
-        systemctl stop wg-quick@wg0 2>/dev/null || true
-        systemctl disable wg-quick@wg0 2>/dev/null || true
+    # Remove configs
+    rm -f /etc/wireguard/wg0.conf
+    rm -f /etc/wireguard/server-private.key
+    rm -f /etc/wireguard/server-public.key
+    rm -f /etc/wireguard/client-private.key
+    rm -f /etc/wireguard/client-public.key
+    rm -f /etc/wireguard/client.conf
 
-        # Remove configs
-        rm -f /etc/wireguard/wg0.conf
-        rm -f /etc/wireguard/server-private.key
-        rm -f /etc/wireguard/server-public.key
-        rm -f /etc/wireguard/client-private.key
-        rm -f /etc/wireguard/client-public.key
-        rm -f /etc/wireguard/client.conf
-
-        log_success "기존 설정 제거 완료"
-    else
-        log_info "설치가 취소되었습니다"
-        exit 0
-    fi
+    log_success "기존 설정 제거 완료"
 fi
 
 log_info "VPN 서버 설치 시작..."
