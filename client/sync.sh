@@ -91,24 +91,24 @@ echo ""
 log_info "VPN 추가 시작..."
 
 VPN_INDEX=0
-echo "$VPN_LIST" | jq -r '.vpns[] | "\(.name)"' | while read -r name; do
+echo "$VPN_LIST" | jq -r '.vpns[] | "\(.public_ip)"' | while read -r public_ip; do
     echo ""
     # 간단한 인터페이스 이름 사용 (wg0, wg1, wg2, ...)
     INTERFACE="wg${VPN_INDEX}"
-    log_info "[$name] → $INTERFACE 추가 중..."
+    log_info "[$public_ip] → $INTERFACE 추가 중..."
 
     # API에서 클라이언트 설정 다운로드
     TEMP_FILE="/tmp/vpn-config-${INTERFACE}.conf"
 
-    if ! curl -s -f "http://$API_HOST/api/vpn/$name/config" > "$TEMP_FILE"; then
-        log_error "[$name] 설정 다운로드 실패"
+    if ! curl -s -f "http://$API_HOST/api/vpn/$public_ip/config" > "$TEMP_FILE"; then
+        log_error "[$public_ip] 설정 다운로드 실패"
         rm -f "$TEMP_FILE"
         VPN_INDEX=$((VPN_INDEX + 1))
         continue
     fi
 
     if [ ! -s "$TEMP_FILE" ]; then
-        log_error "[$name] 설정 파일이 비어있습니다"
+        log_error "[$public_ip] 설정 파일이 비어있습니다"
         rm -f "$TEMP_FILE"
         VPN_INDEX=$((VPN_INDEX + 1))
         continue
@@ -134,14 +134,14 @@ echo "$VPN_LIST" | jq -r '.vpns[] | "\(.name)"' | while read -r name; do
     systemctl restart wg-quick@${INTERFACE}
 
     if systemctl is-active --quiet wg-quick@${INTERFACE}; then
-        log_success "[$name] → $INTERFACE 추가 완료"
+        log_success "[$public_ip] → $INTERFACE 추가 완료"
 
         # 라우트 추가 (비활성 상태)
         VPN_IP=$(grep "Address" "$TARGET_CONF" | head -n1 | cut -d'=' -f2 | cut -d'/' -f1 | tr -d ' ')
         VPN_GATEWAY=$(echo $VPN_IP | awk -F'.' '{print $1"."$2"."$3".1"}')
         ip route add default via $VPN_GATEWAY dev $INTERFACE metric 900 2>/dev/null || true
     else
-        log_error "[$name] → $INTERFACE VPN 시작 실패"
+        log_error "[$public_ip] → $INTERFACE VPN 시작 실패"
         journalctl -u wg-quick@${INTERFACE} -n 10 --no-pager
     fi
 
@@ -178,11 +178,11 @@ for iface in $(wg show interfaces 2>/dev/null); do
         USERNAME="vpn-${iface#wg-}"
     fi
 
-    # API에서 VPN 이름 조회
-    VPN_INFO=$(echo "$VPN_LIST" | jq -r ".vpns[$NUM].name // \"unknown\"")
-    VPN_NAME=${VPN_INFO:-"unknown"}
+    # API에서 VPN IP 조회
+    VPN_IP_INFO=$(echo "$VPN_LIST" | jq -r ".vpns[$NUM].public_ip // \"unknown\"")
+    VPN_PUBLIC_IP=${VPN_IP_INFO:-"unknown"}
 
-    echo "  vpn $USERNAME python crawl.py  # $VPN_NAME ($iface)"
+    echo "  vpn $USERNAME python crawl.py  # $VPN_PUBLIC_IP ($iface)"
 done
 
 echo ""
