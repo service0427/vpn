@@ -41,6 +41,22 @@ fi
 log_info "발견된 인터페이스: $INTERFACES"
 echo ""
 
+# rp_filter 설정 (UID 기반 라우팅에 필수)
+log_info "Reverse Path Filtering 설정 중..."
+sysctl -w net.ipv4.conf.all.rp_filter=2 > /dev/null
+sysctl -w net.ipv4.conf.default.rp_filter=2 > /dev/null
+
+# 영구 설정
+cat > /etc/sysctl.d/99-vpn-routing.conf <<EOF
+# VPN UID-based routing을 위한 설정
+net.ipv4.conf.all.rp_filter=2
+net.ipv4.conf.default.rp_filter=2
+EOF
+
+sysctl -p /etc/sysctl.d/99-vpn-routing.conf > /dev/null 2>&1
+log_success "rp_filter 설정 완료 (loose mode)"
+echo ""
+
 # 기존 라우팅 규칙 정리 (선택적)
 log_info "기존 VPN 라우팅 규칙 정리 중..."
 ip rule list | grep "lookup 10" | while read line; do

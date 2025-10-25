@@ -143,7 +143,7 @@ sudo ./sync.sh
 
 ```bash
 # vpn 스크립트를 /usr/local/bin으로 복사
-sudo cp /home/vpn-ip-rotation/client/vpn /usr/local/bin/
+sudo cp /home/vpn/client/vpn /usr/local/bin/
 sudo chmod +x /usr/local/bin/vpn
 
 # 이제 어디서든 실행 가능
@@ -261,7 +261,7 @@ cat /etc/passwd | grep vpn
 VPN 연결 시 SSH 연결이 끊기지 않도록 보호:
 
 ```bash
-sudo /home/vpn-ip-rotation/client/protect.sh
+sudo /home/vpn/client/protect.sh
 ```
 
 ### VPN 재동기화
@@ -269,14 +269,14 @@ sudo /home/vpn-ip-rotation/client/protect.sh
 새로운 VPN 서버가 추가되면:
 
 ```bash
-cd /home/vpn-ip-rotation/client
+cd /home/vpn/client
 sudo ./sync.sh
 ```
 
 ### 수동으로 VPN 추가
 
 ```bash
-cd /home/vpn-ip-rotation/client
+cd /home/vpn/client
 sudo ./add.sh root@119.193.40.11 wg-kr-seoul-01
 ```
 
@@ -312,7 +312,7 @@ sudo -u vpn0 curl ifconfig.me
 
 ```bash
 # VPN 사용자 재생성
-cd /home/vpn-ip-rotation/client
+cd /home/vpn/client
 sudo ./setup-vpnusers.sh
 ```
 
