@@ -170,7 +170,7 @@ log_info "WireGuard 서버 설정 생성 중..."
 cat > /etc/wireguard/wg0.conf <<EOF
 [Interface]
 Address = 10.8.0.1/24
-ListenPort = 51820
+ListenPort = 55555
 PrivateKey = $SERVER_PRIVATE_KEY
 
 # IP forwarding and NAT
@@ -202,18 +202,18 @@ log_info "방화벽 설정 중..."
 if command -v firewall-cmd &> /dev/null; then
     log_info "firewalld 설정 중..."
     systemctl enable firewalld --now 2>/dev/null || true
-    firewall-cmd --permanent --add-port=51820/udp
+    firewall-cmd --permanent --add-port=55555/udp
     firewall-cmd --permanent --add-masquerade
     firewall-cmd --reload
     log_success "firewalld 설정 완료"
 elif command -v ufw &> /dev/null; then
     log_info "UFW 설정 중..."
-    ufw allow 51820/udp
+    ufw allow 55555/udp
     ufw --force enable
     log_success "UFW 설정 완료"
 else
     log_warn "방화벽을 찾을 수 없습니다 - iptables 직접 사용"
-    iptables -A INPUT -p udp --dport 51820 -j ACCEPT
+    iptables -A INPUT -p udp --dport 55555 -j ACCEPT
     log_warn "iptables 규칙은 재부팅 후 유지되지 않을 수 있습니다"
 fi
 
@@ -239,7 +239,7 @@ DNS = 1.1.1.1, 8.8.8.8
 
 [Peer]
 PublicKey = $SERVER_PUBLIC_KEY
-Endpoint = $PUBLIC_IP:51820
+Endpoint = $PUBLIC_IP:55555
 AllowedIPs = 0.0.0.0/0
 PersistentKeepalive = 25
 EOF
@@ -292,7 +292,7 @@ CLIENT_CONFIG_ESCAPED=$(cat $CLIENT_CONFIG | jq -Rs .)
 API_PAYLOAD=$(cat <<EOF
 {
     "public_ip": "$PUBLIC_IP",
-    "port": 51820,
+    "port": 55555,
     "client_config": $CLIENT_CONFIG_ESCAPED
 }
 EOF

@@ -110,7 +110,7 @@ sudo ./setup.sh
 **설치 내용**:
 - WireGuard 설치
 - 서버 키 생성
-- 방화벽 설정 (포트 51820 UDP)
+- 방화벽 설정 (포트 55555 UDP)
 - API 서버에 자동 등록
 
 ### 2. 클라이언트 설치
@@ -331,7 +331,7 @@ curl http://112.161.221.82/api/vpn/list | jq
 ### VPN 서버
 - OS: Rocky Linux 9+, Ubuntu 20.04+
 - 공인 IP 필수
-- 포트: 51820 UDP 오픈
+- 포트: 55555 UDP 오픈
 
 ### 클라이언트
 - OS: Rocky Linux 9+, Ubuntu 20.04+
@@ -390,7 +390,7 @@ CREATE TABLE vpn_servers (
     public_ip VARCHAR(45) NOT NULL,             -- 119.193.40.11
     interface VARCHAR(20) NOT NULL,             -- wg-vpn-119-193-40-11
     region VARCHAR(10),                         -- KR, US, JP
-    port INT DEFAULT 51820,
+    port INT DEFAULT 55555,
     status ENUM('active', 'inactive', 'error'),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
