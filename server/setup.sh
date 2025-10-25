@@ -294,7 +294,7 @@ echo ""
 
 # Register to API
 log_info "API 서버에 등록 중..."
-API_HOST="220.121.120.83"
+API_HOST="112.161.221.82"
 
 # WireGuard interface name (wg-{name})
 WG_INTERFACE="wg-${VPN_NAME}"
