@@ -116,10 +116,10 @@ $PKG_UPDATE
 
 case $OS in
     rocky|centos|rhel|fedora)
-        $PKG_INSTALL wireguard-tools iptables iptables-services curl jq
+        $PKG_INSTALL wireguard-tools iptables iptables-services curl jq mysql
         ;;
     ubuntu|debian)
-        $PKG_INSTALL wireguard-tools iptables curl jq
+        $PKG_INSTALL wireguard-tools iptables curl jq mysql-client
         ;;
 esac
 
