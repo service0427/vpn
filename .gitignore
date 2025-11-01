@@ -1,24 +1,17 @@
-# WireGuard 개인키 (절대 커밋 금지!)
-*.key
-*private*
-*.conf
-
-# 단, 템플릿은 허용
-!*.conf.template
-
-# 로그 파일
+# Logs
+log/
 *.log
-logs/
+*.pcap*
 
-# 임시 파일
-*.tmp
-*.swp
-*~
+# Temporary scripts
+capture-*.sh
+monitor-*.sh
+analyze-*.sh
+show-*.sh
 
-# OS 파일
-.DS_Store
-Thumbs.db
+# WireGuard keys
+*.pub
+*.key
 
-# 백업 파일
-*.bak
-*.backup
+# Test files
+test-*.sh
