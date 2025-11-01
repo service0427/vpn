@@ -329,3 +329,66 @@ echo -e "${BLUE}API 정보:${NC}"
 echo "  - 공인 IP: $PUBLIC_IP"
 echo "  - API 서버: $API_HOST"
 echo ""
+
+# Setup healthcheck cron
+log_info "헬스체크 크론 설정 중..."
+HEALTHCHECK_SCRIPT="/home/vpn/client/healthcheck.sh"
+
+# healthcheck.sh가 없으면 생성
+if [ ! -f "$HEALTHCHECK_SCRIPT" ]; then
+    mkdir -p /home/vpn/client
+    cat > $HEALTHCHECK_SCRIPT <<'HEALTHCHECK_EOF'
+#!/bin/bash
+
+#######################################
+# VPN 헬스체크 스크립트
+# 매분 실행하여 로컬 VPN 서버 상태 업데이트
+#######################################
+
+DB_HOST="220.121.120.83"
+DB_USER="vpnuser"
+DB_PASS="vpn1324"
+DB_NAME="vpn"
+
+# 현재 서버의 공인 IP 확인
+MY_IP=$(curl -s -m 5 ifconfig.me 2>/dev/null || curl -s -m 5 api.ipify.org 2>/dev/null)
+
+if [ -z "$MY_IP" ]; then
+    echo "Error: Cannot detect public IP"
+    exit 1
+fi
+
+# 로컬 WireGuard 인터페이스 확인 및 상태 업데이트
+for wg_iface in $(ls /etc/wireguard/*.conf 2>/dev/null | xargs -n1 basename | sed 's/.conf$//'); do
+    # WireGuard 인터페이스가 실제로 떠있는지 확인
+    if wg show "$wg_iface" > /dev/null 2>&1; then
+        # 포트 확인
+        PORT=$(grep "^ListenPort" /etc/wireguard/${wg_iface}.conf | awk '{print $3}' | tr -d ' ')
+
+        if [ -n "$PORT" ]; then
+            # DB에 updated_at만 업데이트 (살아있음 표시)
+            mysql -h "$DB_HOST" -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" -e \
+                "UPDATE vpn_servers SET updated_at = CURRENT_TIMESTAMP WHERE public_ip = '$MY_IP' AND port = $PORT" 2>/dev/null
+        fi
+    fi
+done
+HEALTHCHECK_EOF
+    chmod +x $HEALTHCHECK_SCRIPT
+    log_success "healthcheck.sh 생성 완료"
+fi
+
+# crontab에 healthcheck 추가 (중복 방지)
+CRON_LINE="*/1 * * * * $HEALTHCHECK_SCRIPT > /dev/null 2>&1"
+if ! crontab -l 2>/dev/null | grep -qF "$HEALTHCHECK_SCRIPT"; then
+    (crontab -l 2>/dev/null; echo "$CRON_LINE") | crontab -
+    log_success "헬스체크 크론 등록 완료 (매 1분)"
+else
+    log_info "헬스체크 크론이 이미 등록되어 있습니다"
+fi
+
+echo ""
+echo -e "${GREEN}헬스체크:${NC}"
+echo "  - 스크립트: $HEALTHCHECK_SCRIPT"
+echo "  - 주기: 매 1분"
+echo "  - 동작: 로컬 WireGuard 상태를 DB에 자동 업데이트"
+echo ""

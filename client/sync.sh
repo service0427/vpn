@@ -91,17 +91,17 @@ echo ""
 log_info "VPN 추가 시작..."
 
 VPN_INDEX=0
-echo "$VPN_LIST" | jq -r '.vpns[] | "\(.public_ip)"' | while read -r public_ip; do
+echo "$VPN_LIST" | jq -r '.vpns[] | "\(.public_ip):\(.port)"' | while IFS=: read -r public_ip port; do
     echo ""
     # 간단한 인터페이스 이름 사용 (wg0, wg1, wg2, ...)
     INTERFACE="wg${VPN_INDEX}"
-    log_info "[$public_ip] → $INTERFACE 추가 중..."
+    log_info "[$public_ip:$port] → $INTERFACE 추가 중..."
 
-    # API에서 클라이언트 설정 다운로드
+    # API에서 클라이언트 설정 다운로드 (port 포함)
     TEMP_FILE="/tmp/vpn-config-${INTERFACE}.conf"
 
-    if ! curl -s -f "http://$API_HOST/api/vpn/$public_ip/config" > "$TEMP_FILE"; then
-        log_error "[$public_ip] 설정 다운로드 실패"
+    if ! curl -s -f "http://$API_HOST/api/vpn/$public_ip/$port/config" > "$TEMP_FILE"; then
+        log_error "[$public_ip:$port] 설정 다운로드 실패"
         rm -f "$TEMP_FILE"
         VPN_INDEX=$((VPN_INDEX + 1))
         continue
