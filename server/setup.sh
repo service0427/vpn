@@ -116,7 +116,12 @@ $PKG_UPDATE
 
 case $OS in
     rocky|centos|rhel|fedora)
-        $PKG_INSTALL wireguard-tools iptables iptables-services curl jq mariadb
+        # Rocky/RHEL 9: mysql, Rocky/RHEL 10+: mariadb-connector-c
+        if [[ "$VER" =~ ^(9|8) ]]; then
+            $PKG_INSTALL wireguard-tools iptables iptables-services curl jq mysql
+        else
+            $PKG_INSTALL wireguard-tools iptables iptables-services curl jq mariadb-connector-c
+        fi
         ;;
     ubuntu|debian)
         $PKG_INSTALL wireguard-tools iptables curl jq mysql-client
