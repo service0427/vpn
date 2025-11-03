@@ -72,10 +72,10 @@ $PKG_UPDATE
 case $OS in
     rocky|centos|rhel|fedora)
         # Rocky Linux 10+는 iptables가 기본 설치 안됨
-        $PKG_INSTALL wireguard-tools iproute curl iptables iptables-services
+        $PKG_INSTALL wireguard-tools iproute curl iptables iptables-services jq
         ;;
     ubuntu|debian)
-        $PKG_INSTALL wireguard-tools iproute2 curl iptables
+        $PKG_INSTALL wireguard-tools iproute2 curl iptables jq
         ;;
 esac
 
@@ -99,6 +99,20 @@ chmod 700 /etc/wireguard
 mkdir -p /usr/local/bin/vpn-tools
 log_success "디렉토리 생성 완료"
 
+# 스크립트 심볼릭 링크 생성
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+log_info "스크립트를 /usr/local/bin에 링크 중..."
+
+# 주요 스크립트들 링크
+for script in vpn sync.sh setup-vpnusers.sh; do
+    if [ -f "$SCRIPT_DIR/$script" ]; then
+        # 확장자 제거한 이름으로 링크
+        link_name=$(basename "$script" .sh)
+        ln -sf "$SCRIPT_DIR/$script" "/usr/local/bin/$link_name"
+        log_success "링크 생성: /usr/local/bin/$link_name -> $SCRIPT_DIR/$script"
+    fi
+done
+
 # 완료 메시지
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -106,8 +120,12 @@ log_success "VPN 클라이언트 초기 설치 완료!"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 echo -e "${GREEN}✅ 다음 단계:${NC}"
-echo "  1. VPN 서버에서 받은 클라이언트 설정 파일 준비"
-echo "  2. ./add-vpn.sh wg0 <설정파일> 실행"
-echo "  3. ./protect-ssh.sh 실행 (SSH 보호)"
-echo "  4. ./test-vpn.sh 실행 (연결 테스트)"
+echo "  1. sync          # VPN 목록 동기화 (API에서 자동 다운로드)"
+echo "  2. setup-vpnusers # VPN 사용자 계정 생성"
+echo "  3. vpn 0 curl ifconfig.me  # VPN 테스트"
+echo ""
+echo -e "${BLUE}💡 명령어 사용법:${NC}"
+echo "  - sync: 어디서든 실행 가능 (VPN 목록 동기화)"
+echo "  - vpn: 어디서든 실행 가능 (VPN으로 명령어 실행)"
+echo "  - setup-vpnusers: 어디서든 실행 가능 (VPN 사용자 설정)"
 echo ""
