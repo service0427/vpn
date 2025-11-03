@@ -5,10 +5,7 @@
 # 매분 실행하여 updated_at만 업데이트 (살아있음 표시)
 #######################################
 
-DB_HOST="220.121.120.83"
-DB_USER="vpnuser"
-DB_PASS="vpn1324"
-DB_NAME="vpn"
+API_HOST="112.161.221.82"
 LOG_FILE="/var/log/vpn-healthcheck.log"
 
 # 로그 함수
@@ -28,7 +25,7 @@ if [ -z "$MY_IP" ]; then
 fi
 log "✅ 공인 IP: $MY_IP"
 
-# 로컬 WireGuard 인터페이스 확인 및 updated_at 업데이트
+# 로컬 WireGuard 인터페이스 확인 및 heartbeat 전송
 FOUND=0
 for wg_iface in $(ls /etc/wireguard/*.conf 2>/dev/null | xargs -n1 basename | sed 's/.conf$//'); do
     log "인터페이스 체크: $wg_iface"
@@ -41,15 +38,16 @@ for wg_iface in $(ls /etc/wireguard/*.conf 2>/dev/null | xargs -n1 basename | se
         if [ -n "$PORT" ]; then
             log "  → 포트: $PORT"
 
-            # DB에 updated_at만 업데이트 (살아있음 표시)
-            ERROR=$(mysql -h "$DB_HOST" -u "$DB_USER" -p"$DB_PASS" "$DB_NAME" -e \
-                "UPDATE vpn_servers SET updated_at = CURRENT_TIMESTAMP WHERE public_ip = '$MY_IP' AND port = $PORT" 2>&1)
+            # API를 통해 heartbeat 전송
+            RESPONSE=$(curl -s -m 5 -X POST http://$API_HOST/api/vpn/heartbeat \
+                -H "Content-Type: application/json" \
+                -d "{\"public_ip\":\"$MY_IP\",\"port\":$PORT}" 2>&1)
 
-            if [ $? -eq 0 ]; then
-                log "  ✅ DB 업데이트 성공: $MY_IP:$PORT"
+            if echo "$RESPONSE" | grep -q '"success":true'; then
+                log "  ✅ Heartbeat 성공: $MY_IP:$PORT"
                 FOUND=1
             else
-                log "  ❌ DB 업데이트 실패: $ERROR"
+                log "  ❌ Heartbeat 실패: $RESPONSE"
             fi
         else
             log "  ⚠️  포트 정보 없음"
