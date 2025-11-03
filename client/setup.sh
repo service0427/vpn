@@ -113,6 +113,16 @@ for script in vpn sync.sh setup-vpnusers.sh; do
     fi
 done
 
+# sudoers 설정 (VPN 사용자 전환 시 비밀번호 불필요)
+log_info "sudoers 설정 중..."
+cat > /etc/sudoers.d/vpn-nopasswd << 'SUDOERS_EOF'
+# VPN 사용자 전환 시 비밀번호 불필요
+ALL ALL=(vpn0,vpn1,vpn2,vpn3,vpn4,vpn5,vpn6,vpn7,vpn8,vpn9) NOPASSWD: ALL
+%wheel ALL=(vpn0,vpn1,vpn2,vpn3,vpn4,vpn5,vpn6,vpn7,vpn8,vpn9) NOPASSWD: ALL
+SUDOERS_EOF
+chmod 0440 /etc/sudoers.d/vpn-nopasswd
+log_success "sudoers 설정 완료 (비밀번호 입력 불필요)"
+
 # 완료 메시지
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
