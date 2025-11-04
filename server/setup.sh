@@ -203,6 +203,7 @@ if command -v firewall-cmd &> /dev/null; then
     firewall-cmd --permanent --add-service=mysql 2>/dev/null || true
     firewall-cmd --permanent --add-service=postgresql 2>/dev/null || true
     firewall-cmd --permanent --add-port=55555/udp 2>/dev/null || true
+    firewall-cmd --permanent --add-port=10000/tcp 2>/dev/null || true
 
     if systemctl is-active --quiet firewalld; then
         firewall-cmd --reload 2>/dev/null || true
@@ -219,6 +220,7 @@ elif command -v ufw &> /dev/null; then
     ufw allow 3306/tcp 2>/dev/null || true
     ufw allow 5432/tcp 2>/dev/null || true
     ufw allow 55555/udp 2>/dev/null || true
+    ufw allow 10000/tcp 2>/dev/null || true
 
     if ufw status | grep -q "Status: active"; then
         log_success "UFW 규칙 추가 완료 (활성화 상태 유지)"
@@ -264,7 +266,7 @@ chmod 600 $CLIENT_CONFIG
 # Print completion message
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-log_success "VPN 서버 설치 완료!"
+log_success "VPN + SOCKS5 서버 설치 완료!"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 echo -e "${BLUE}서버 정보:${NC}"
@@ -286,6 +288,18 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo ""
 echo -e "${BLUE}VPN 상태:${NC}"
 wg show
+echo ""
+echo -e "${GREEN}서비스 정보:${NC}"
+echo "  [VPN 서버]"
+echo "    - 프로토콜: WireGuard (UDP)"
+echo "    - 포트: 55555"
+echo "    - 접속: WireGuard 클라이언트 필요"
+echo ""
+echo "  [SOCKS5 프록시]"
+echo "    - 프로토콜: SOCKS5 with Auth (TCP)"
+echo "    - 포트: 10000"
+echo "    - 계정: techb:Tech1324!@"
+echo "    - 접속: $PUBLIC_IP:10000"
 echo ""
 echo -e "${GREEN}다음 단계:${NC}"
 echo "  1. 위의 클라이언트 설정을 복사"
@@ -436,4 +450,282 @@ echo -e "${GREEN}헬스체크:${NC}"
 echo "  - 스크립트: $HEALTHCHECK_SCRIPT"
 echo "  - 주기: 매 1분"
 echo "  - 동작: 로컬 WireGuard 상태를 DB에 자동 업데이트"
+echo ""
+
+# Install Python3 if not present
+log_info "Python3 확인 중..."
+if ! command -v python3 &> /dev/null; then
+    log_info "Python3 설치 중..."
+    case $OS in
+        rocky|centos|rhel|fedora)
+            $PKG_INSTALL python3
+            ;;
+        ubuntu|debian)
+            $PKG_INSTALL python3
+            ;;
+    esac
+    log_success "Python3 설치 완료"
+else
+    log_success "Python3 이미 설치됨"
+fi
+
+# Setup SOCKS5 Proxy with Authentication
+log_info "SOCKS5 프록시 설정 중..."
+SOCKS5_DIR="/home/vpn/server"
+SOCKS5_SCRIPT="$SOCKS5_DIR/socks5_auth.py"
+
+# Create directory if not exists
+mkdir -p "$SOCKS5_DIR"
+
+# Create SOCKS5 server script
+cat > $SOCKS5_SCRIPT <<'SOCKS5_EOF'
+#!/usr/bin/env python3
+"""
+SOCKS5 Proxy Server with Username/Password Authentication
+Port: 10000
+Account: techb / Tech1324!@
+"""
+
+import socket
+import select
+import struct
+import threading
+import sys
+import signal
+import logging
+
+# 로깅 설정
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - SOCKS5 - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+# 하드코딩된 인증 정보
+AUTH_USERNAME = b'techb'
+AUTH_PASSWORD = b'Tech1324!@'
+
+class SOCKS5Server:
+    def __init__(self, port=10000):
+        self.port = port
+        self.running = True
+        self.server_socket = None
+
+    def start(self):
+        """프록시 서버 시작"""
+        try:
+            self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            self.server_socket.bind(('0.0.0.0', self.port))
+            self.server_socket.listen(128)
+            logger.info(f"SOCKS5 proxy with auth listening on port {self.port}")
+
+            while self.running:
+                try:
+                    readable, _, _ = select.select([self.server_socket], [], [], 1)
+                    if readable:
+                        client_socket, address = self.server_socket.accept()
+                        thread = threading.Thread(target=self.handle_client, args=(client_socket, address))
+                        thread.daemon = True
+                        thread.start()
+                except Exception as e:
+                    if self.running:
+                        logger.error(f"Error accepting connection: {e}")
+
+        except Exception as e:
+            logger.error(f"Failed to start server on port {self.port}: {e}")
+        finally:
+            self.stop()
+
+    def handle_client(self, client_socket, address):
+        """클라이언트 연결 처리"""
+        try:
+            # SOCKS5 버전 및 인증 방법 협상
+            data = client_socket.recv(2)
+            if len(data) < 2:
+                client_socket.close()
+                return
+
+            version, nmethods = struct.unpack("!BB", data)
+            if version != 5:
+                client_socket.close()
+                return
+
+            # 클라이언트가 지원하는 인증 방법 읽기
+            methods = client_socket.recv(nmethods)
+
+            # 사용자명/비밀번호 인증 요구 (0x02)
+            if b'\x02' not in methods:
+                client_socket.send(b"\x05\xff")  # No acceptable methods
+                client_socket.close()
+                return
+
+            client_socket.send(b"\x05\x02")  # Username/Password auth required
+
+            # 사용자명/비밀번호 인증
+            auth_data = client_socket.recv(3)
+            if len(auth_data) < 3:
+                client_socket.close()
+                return
+
+            auth_version, ulen = struct.unpack("!BB", auth_data[:2])
+            if auth_version != 1:
+                client_socket.send(b"\x01\x01")  # Auth failed
+                client_socket.close()
+                return
+
+            username = client_socket.recv(ulen)
+            plen = struct.unpack("!B", client_socket.recv(1))[0]
+            password = client_socket.recv(plen)
+
+            # 인증 확인
+            if username != AUTH_USERNAME or password != AUTH_PASSWORD:
+                logger.warning(f"Auth failed from {address}: {username.decode('utf-8', errors='ignore')}")
+                client_socket.send(b"\x01\x01")  # Auth failed
+                client_socket.close()
+                return
+
+            logger.info(f"Auth success from {address}")
+            client_socket.send(b"\x01\x00")  # Auth success
+
+            # 연결 요청
+            data = client_socket.recv(4)
+            if len(data) < 4:
+                client_socket.close()
+                return
+
+            version, cmd, _, atyp = struct.unpack("!BBBB", data)
+
+            if cmd != 1:  # CONNECT only
+                client_socket.send(b"\x05\x07\x00\x01\x00\x00\x00\x00\x00\x00")
+                client_socket.close()
+                return
+
+            # 주소 파싱
+            if atyp == 1:  # IPv4
+                addr = socket.inet_ntoa(client_socket.recv(4))
+            elif atyp == 3:  # Domain
+                addr_len = client_socket.recv(1)[0]
+                addr = client_socket.recv(addr_len).decode()
+            else:
+                client_socket.send(b"\x05\x08\x00\x01\x00\x00\x00\x00\x00\x00")
+                client_socket.close()
+                return
+
+            port = struct.unpack("!H", client_socket.recv(2))[0]
+
+            # 원격 서버 연결 (메인 이더넷 사용)
+            try:
+                remote_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                remote_socket.settimeout(10)
+                remote_socket.connect((addr, port))
+
+                # 성공 응답
+                client_socket.send(b"\x05\x00\x00\x01\x00\x00\x00\x00\x00\x00")
+                logger.debug(f"Connected to {addr}:{port}")
+
+                # 데이터 중계
+                self.relay_data(client_socket, remote_socket)
+
+            except Exception as e:
+                logger.debug(f"Failed to connect to {addr}:{port} - {e}")
+                client_socket.send(b"\x05\x01\x00\x01\x00\x00\x00\x00\x00\x00")
+
+        except Exception as e:
+            logger.debug(f"Error handling client: {e}")
+        finally:
+            client_socket.close()
+
+    def relay_data(self, client_socket, remote_socket):
+        """클라이언트와 원격 서버 간 데이터 중계"""
+        try:
+            client_socket.setblocking(False)
+            remote_socket.setblocking(False)
+
+            while self.running:
+                ready = select.select([client_socket, remote_socket], [], [], 1)
+                if ready[0]:
+                    for sock in ready[0]:
+                        data = sock.recv(4096)
+                        if not data:
+                            return
+                        if sock is client_socket:
+                            remote_socket.sendall(data)
+                        else:
+                            client_socket.sendall(data)
+        except:
+            pass
+        finally:
+            remote_socket.close()
+
+    def stop(self):
+        """서버 중지"""
+        self.running = False
+        if self.server_socket:
+            try:
+                self.server_socket.close()
+            except:
+                pass
+            logger.info(f"SOCKS5 proxy stopped on port {self.port}")
+
+def main():
+    server = SOCKS5Server(port=10000)
+
+    def signal_handler(sig, frame):
+        logger.info("Shutting down...")
+        server.stop()
+        sys.exit(0)
+
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+
+    server.start()
+
+if __name__ == '__main__':
+    main()
+SOCKS5_EOF
+
+chmod +x $SOCKS5_SCRIPT
+log_success "SOCKS5 스크립트 생성 완료: $SOCKS5_SCRIPT"
+
+# Create systemd service for SOCKS5
+log_info "SOCKS5 systemd 서비스 생성 중..."
+cat > /etc/systemd/system/socks5-vpn.service <<EOF
+[Unit]
+Description=SOCKS5 Proxy Server with Authentication
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=$SOCKS5_DIR
+ExecStart=/usr/bin/python3 $SOCKS5_SCRIPT
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Enable and start SOCKS5 service
+systemctl daemon-reload
+systemctl enable socks5-vpn
+systemctl start socks5-vpn
+
+if systemctl is-active --quiet socks5-vpn; then
+    log_success "SOCKS5 서비스 시작 완료"
+else
+    log_error "SOCKS5 서비스 시작 실패"
+    systemctl status socks5-vpn --no-pager
+fi
+
+echo ""
+echo -e "${GREEN}SOCKS5 프록시:${NC}"
+echo "  - 포트: 10000"
+echo "  - 계정: techb:Tech1324!@"
+echo "  - 주소: $PUBLIC_IP:10000"
+echo "  - 인증: Username/Password (RFC1929)"
 echo ""
