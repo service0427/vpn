@@ -29,8 +29,8 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo "🔗 API에서 가져온 활성 VPN 목록:"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-API_HOST="112.161.221.82"
-VPN_LIST=$(curl -s http://$API_HOST/api/vpn/list)
+API_HOST="220.121.120.83"
+VPN_LIST=$(curl -s http://$API_HOST/vpn_socks5/api/servers.php?active=true)
 
 if [ $? -eq 0 ] && [ -n "$VPN_LIST" ]; then
     echo "$VPN_LIST" | jq -r '.vpns[] | "\(.public_ip):\(.port)"' | nl -w2 -s". "

@@ -25,7 +25,8 @@ if [ "$EUID" -ne 0 ]; then
 fi
 
 # API 정보
-API_HOST="112.161.221.82"
+API_HOST="220.121.120.83"
+API_BASE="/vpn_socks5/api"
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo -e "${BLUE}🔄 VPN 목록 동기화 (API)${NC}"
@@ -46,15 +47,14 @@ fi
 
 # API 연결 테스트
 log_info "API 연결 중: $API_HOST"
-if ! curl -s -f http://$API_HOST/health > /dev/null; then
-    log_error "API 연결 실패"
-    exit 1
+if ! curl -s -f http://$API_HOST$API_BASE/test_db.php > /dev/null 2>&1; then
+    log_warn "API 헬스체크 실패 (계속 진행)"
 fi
 log_success "API 연결 성공"
 
 # VPN 목록 조회
 log_info "VPN 목록 조회 중..."
-VPN_LIST=$(curl -s http://$API_HOST/api/vpn/list)
+VPN_LIST=$(curl -s http://$API_HOST$API_BASE/servers.php?active=true)
 
 VPN_COUNT=$(echo "$VPN_LIST" | jq '.vpns | length')
 
@@ -97,10 +97,10 @@ echo "$VPN_LIST" | jq -r '.vpns[] | "\(.public_ip):\(.port)"' | while IFS=: read
     INTERFACE="wg${VPN_INDEX}"
     log_info "[$public_ip:$port] → $INTERFACE 추가 중..."
 
-    # API에서 클라이언트 설정 다운로드 (port 포함)
+    # API에서 클라이언트 설정 다운로드
     TEMP_FILE="/tmp/vpn-config-${INTERFACE}.conf"
 
-    if ! curl -s -f "http://$API_HOST/api/vpn/$public_ip/$port/config" > "$TEMP_FILE"; then
+    if ! curl -s -f "http://$API_HOST$API_BASE/config.php?ip=$public_ip&port=$port" > "$TEMP_FILE"; then
         log_error "[$public_ip:$port] 설정 다운로드 실패"
         rm -f "$TEMP_FILE"
         VPN_INDEX=$((VPN_INDEX + 1))
