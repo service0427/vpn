@@ -119,7 +119,7 @@ case $OS in
         $PKG_INSTALL wireguard-tools iptables iptables-services curl jq
         ;;
     ubuntu|debian)
-        $PKG_INSTALL wireguard-tools iptables curl jq
+        $PKG_INSTALL wireguard-tools curl jq
         ;;
 esac
 
@@ -128,12 +128,7 @@ if ! command -v wg &> /dev/null; then
     exit 1
 fi
 
-if ! command -v iptables &> /dev/null; then
-    log_error "iptables 설치 실패"
-    exit 1
-fi
-
-log_success "WireGuard 및 iptables 설치 완료"
+log_success "WireGuard 및 필수 도구 설치 완료"
 
 # Create WireGuard directory
 mkdir -p /etc/wireguard
