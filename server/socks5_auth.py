@@ -2,7 +2,7 @@
 """
 SOCKS5 Proxy Server with Username/Password Authentication
 Port: 10000
-Account: techb / Tech1324!@
+Account: techb / Tech1324!#
 """
 
 import socket
@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 # 하드코딩된 인증 정보
 AUTH_USERNAME = b'techb'
-AUTH_PASSWORD = b'Tech1324!@'
+AUTH_PASSWORD = b'Tech1324!#'
 
 class SOCKS5Server:
     def __init__(self, port=10000):
