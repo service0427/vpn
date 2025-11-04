@@ -481,11 +481,17 @@ log_info "SOCKS5 프록시 설정 중..."
 SOCKS5_DIR="/home/vpn/server"
 SOCKS5_SCRIPT="$SOCKS5_DIR/socks5_auth.py"
 
-# Create directory if not exists
-mkdir -p "$SOCKS5_DIR"
+# Check if SOCKS5 script exists (should be in git repo)
+if [ ! -f "$SOCKS5_SCRIPT" ]; then
+    log_error "SOCKS5 스크립트를 찾을 수 없습니다: $SOCKS5_SCRIPT"
+    log_error "git clone으로 전체 레포지토리를 받았는지 확인하세요"
+    exit 1
+fi
 
-# Create SOCKS5 server script
-cat > $SOCKS5_SCRIPT <<'SOCKS5_EOF'
+# Note: socks5_auth.py is now managed by git, not embedded in setup.sh
+# Skipping script generation...
+if false; then
+cat > /dev/null <<'SOCKS5_EOF'
 #!/usr/bin/env python3
 """
 SOCKS5 Proxy Server with IP Whitelist
@@ -698,9 +704,11 @@ def main():
 if __name__ == '__main__':
     main()
 SOCKS5_EOF
+fi
 
+# Ensure script is executable
 chmod +x $SOCKS5_SCRIPT
-log_success "SOCKS5 스크립트 생성 완료: $SOCKS5_SCRIPT"
+log_success "SOCKS5 스크립트 확인 완료: $SOCKS5_SCRIPT"
 
 # Create systemd service for SOCKS5
 log_info "SOCKS5 systemd 서비스 생성 중..."
