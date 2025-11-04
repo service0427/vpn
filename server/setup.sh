@@ -723,7 +723,15 @@ EOF
 # Enable and start SOCKS5 service
 systemctl daemon-reload
 systemctl enable socks5-vpn
-systemctl start socks5-vpn
+
+# 기존 서비스가 실행 중이면 재시작, 아니면 시작
+if systemctl is-active --quiet socks5-vpn; then
+    log_info "SOCKS5 서비스 재시작 중..."
+    systemctl restart socks5-vpn
+else
+    log_info "SOCKS5 서비스 시작 중..."
+    systemctl start socks5-vpn
+fi
 
 if systemctl is-active --quiet socks5-vpn; then
     log_success "SOCKS5 서비스 시작 완료"
