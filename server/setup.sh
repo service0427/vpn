@@ -309,20 +309,25 @@ echo ""
 
 # Register to API
 log_info "API 서버에 등록 중..."
-API_HOST="112.161.221.82"
+API_HOST="220.121.120.83"
+API_ENDPOINT="/vpn_socks5/api/register.php"
 
 # API call with debug output
 log_info "API 호스트: $API_HOST"
 log_info "공인 IP: $PUBLIC_IP"
 
-# Prepare JSON payload with client config
+# Prepare JSON payload with client config and SOCKS5 info
 CLIENT_CONFIG_ESCAPED=$(cat $CLIENT_CONFIG | jq -Rs .)
 
 API_PAYLOAD=$(cat <<EOF
 {
     "public_ip": "$PUBLIC_IP",
     "port": 55555,
-    "client_config": $CLIENT_CONFIG_ESCAPED
+    "socks5_port": 10000,
+    "socks5_username": "techb",
+    "socks5_password": "Tech1324!@",
+    "client_config": $CLIENT_CONFIG_ESCAPED,
+    "memo": "VPN+SOCKS5 Server"
 }
 EOF
 )
@@ -334,7 +339,7 @@ echo "$API_PAYLOAD" | jq '.'
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 
-RESPONSE=$(curl -s -w "\nHTTP_CODE:%{http_code}" -X POST http://$API_HOST/api/vpn/register \
+RESPONSE=$(curl -s -w "\nHTTP_CODE:%{http_code}" -X POST http://$API_HOST$API_ENDPOINT \
     -H "Content-Type: application/json" \
     -d "$API_PAYLOAD")
 
@@ -374,7 +379,8 @@ if [ ! -f "$HEALTHCHECK_SCRIPT" ]; then
 # 매분 실행하여 updated_at만 업데이트 (살아있음 표시)
 #######################################
 
-API_HOST="112.161.221.82"
+API_HOST="220.121.120.83"
+API_ENDPOINT="/vpn_socks5/api/heartbeat.php"
 LOG_FILE="/var/log/vpn-healthcheck.log"
 
 # 로그 함수
@@ -408,7 +414,7 @@ for wg_iface in $(ls /etc/wireguard/*.conf 2>/dev/null | xargs -n1 basename | se
             log "  → 포트: $PORT"
 
             # API를 통해 heartbeat 전송
-            RESPONSE=$(curl -s -m 5 -X POST http://$API_HOST/api/vpn/heartbeat \
+            RESPONSE=$(curl -s -m 5 -X POST http://$API_HOST$API_ENDPOINT \
                 -H "Content-Type: application/json" \
                 -d "{\"public_ip\":\"$MY_IP\",\"port\":$PORT}" 2>&1)
 

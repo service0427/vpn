@@ -5,7 +5,8 @@
 # 매분 실행하여 updated_at만 업데이트 (살아있음 표시)
 #######################################
 
-API_HOST="112.161.221.82"
+API_HOST="220.121.120.83"
+API_ENDPOINT="/vpn_socks5/api/heartbeat.php"
 LOG_FILE="/var/log/vpn-healthcheck.log"
 
 # 로그 함수
@@ -39,7 +40,7 @@ for wg_iface in $(ls /etc/wireguard/*.conf 2>/dev/null | xargs -n1 basename | se
             log "  → 포트: $PORT"
 
             # API를 통해 heartbeat 전송
-            RESPONSE=$(curl -s -m 5 -X POST http://$API_HOST/api/vpn/heartbeat \
+            RESPONSE=$(curl -s -m 5 -X POST http://$API_HOST$API_ENDPOINT \
                 -H "Content-Type: application/json" \
                 -d "{\"public_ip\":\"$MY_IP\",\"port\":$PORT}" 2>&1)
 
