@@ -197,17 +197,45 @@ fi
 sysctl -w net.ipv4.ip_forward=1 > /dev/null
 log_success "IP 포워딩 활성화 완료"
 
-# Firewall notice
-log_info "방화벽 확인..."
-if systemctl is-active --quiet firewalld 2>/dev/null; then
-    log_warn "firewalld가 활성화되어 있습니다. UDP 55555 포트를 수동으로 열어주세요:"
-    log_warn "  firewall-cmd --permanent --add-port=55555/udp && firewall-cmd --reload"
-elif systemctl is-enabled --quiet ufw 2>/dev/null; then
-    log_warn "UFW가 활성화되어 있습니다. UDP 55555 포트를 수동으로 열어주세요:"
-    log_warn "  ufw allow 55555/udp"
+# Firewall rules (add rules without enabling firewall)
+log_info "방화벽 안전 규칙 추가 중 (방화벽은 켜지 않음)..."
+
+if command -v firewall-cmd &> /dev/null; then
+    # firewalld 규칙 추가 (방화벽 켜지 않음)
+    firewall-cmd --permanent --add-service=ssh 2>/dev/null || true
+    firewall-cmd --permanent --add-service=http 2>/dev/null || true
+    firewall-cmd --permanent --add-service=https 2>/dev/null || true
+    firewall-cmd --permanent --add-service=mysql 2>/dev/null || true
+    firewall-cmd --permanent --add-service=postgresql 2>/dev/null || true
+    firewall-cmd --permanent --add-port=55555/udp 2>/dev/null || true
+
+    if systemctl is-active --quiet firewalld; then
+        firewall-cmd --reload 2>/dev/null || true
+        log_success "firewalld 규칙 추가 완료 (활성화 상태 유지)"
+    else
+        log_success "firewalld 규칙 추가 완료 (비활성화 상태 유지)"
+    fi
+
+elif command -v ufw &> /dev/null; then
+    # UFW 규칙 추가 (방화벽 켜지 않음)
+    ufw allow 22/tcp 2>/dev/null || true
+    ufw allow 80/tcp 2>/dev/null || true
+    ufw allow 443/tcp 2>/dev/null || true
+    ufw allow 3306/tcp 2>/dev/null || true
+    ufw allow 5432/tcp 2>/dev/null || true
+    ufw allow 55555/udp 2>/dev/null || true
+
+    if ufw status | grep -q "Status: active"; then
+        log_success "UFW 규칙 추가 완료 (활성화 상태 유지)"
+    else
+        log_success "UFW 규칙 추가 완료 (비활성화 상태 유지)"
+    fi
+
 else
-    log_info "방화벽이 비활성화 상태입니다 (모든 포트 열림)"
+    log_info "방화벽을 찾을 수 없습니다"
 fi
+
+log_info "💡 방화벽 상태는 변경하지 않았습니다 (SSH 안전)"
 
 # Start WireGuard service
 log_info "WireGuard 서비스 시작 중..."
