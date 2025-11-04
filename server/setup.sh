@@ -175,10 +175,10 @@ PostUp = iptables -t nat -A POSTROUTING -o $MAIN_INTERFACE -j MASQUERADE
 PostDown = iptables -D FORWARD -i wg0 -j ACCEPT
 PostDown = iptables -t nat -D POSTROUTING -o $MAIN_INTERFACE -j MASQUERADE
 
-# Client config
+# Client config (multiple connections allowed with same key)
 [Peer]
 PublicKey = $CLIENT_PUBLIC_KEY
-AllowedIPs = 10.8.0.2/32
+AllowedIPs = 10.8.0.0/24
 EOF
 
 chmod 600 /etc/wireguard/wg0.conf
@@ -273,12 +273,14 @@ echo -e "${BLUE}서버 정보:${NC}"
 echo "  - 공인 IP: $PUBLIC_IP"
 echo "  - VPN 서브넷: 10.8.0.0/24"
 echo "  - 서버 주소: 10.8.0.1"
-echo "  - 클라이언트 주소: 10.8.0.2"
+echo "  - 클라이언트 주소: 10.8.0.2 (기본값)"
 echo ""
 echo -e "${BLUE}클라이언트 설정 파일:${NC}"
 echo "  위치: $CLIENT_CONFIG"
 echo ""
 echo -e "${YELLOW}이 설정 파일을 클라이언트 서버로 복사하세요!${NC}"
+echo -e "${GREEN}💡 다중 접속:${NC} 여러 클라이언트에서 동일 키 사용 가능"
+echo "   다른 클라이언트는 Address를 10.8.0.3, 10.8.0.4 등으로 변경하세요"
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo -e "${GREEN}클라이언트 설정 내용:${NC}"
@@ -294,12 +296,14 @@ echo "  [VPN 서버]"
 echo "    - 프로토콜: WireGuard (UDP)"
 echo "    - 포트: 55555"
 echo "    - 접속: WireGuard 클라이언트 필요"
+echo "    - 다중 접속: 동일 키로 여러 클라이언트 접속 가능"
 echo ""
 echo "  [SOCKS5 프록시]"
 echo "    - 프로토콜: SOCKS5 with Auth (TCP)"
 echo "    - 포트: 10000"
 echo "    - 계정: techb:Tech1324"
 echo "    - 접속: $PUBLIC_IP:10000"
+echo "    - 다중 접속: 동시 접속 무제한"
 echo ""
 echo -e "${GREEN}다음 단계:${NC}"
 echo "  1. 위의 클라이언트 설정을 복사"
