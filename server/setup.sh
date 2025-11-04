@@ -298,7 +298,7 @@ echo ""
 echo "  [SOCKS5 프록시]"
 echo "    - 프로토콜: SOCKS5 with Auth (TCP)"
 echo "    - 포트: 10000"
-echo "    - 계정: techb:Tech1324!#"
+echo "    - 계정: techb:Tech1324"
 echo "    - 접속: $PUBLIC_IP:10000"
 echo ""
 echo -e "${GREEN}다음 단계:${NC}"
@@ -325,7 +325,7 @@ API_PAYLOAD=$(cat <<EOF
     "port": 55555,
     "socks5_port": 10000,
     "socks5_username": "techb",
-    "socks5_password": "Tech1324!#",
+    "socks5_password": "Tech1324",
     "client_config": $CLIENT_CONFIG_ESCAPED,
     "memo": "VPN+SOCKS5 Server"
 }
@@ -489,7 +489,7 @@ cat > $SOCKS5_SCRIPT <<'SOCKS5_EOF'
 """
 SOCKS5 Proxy Server with Username/Password Authentication
 Port: 10000
-Account: techb / Tech1324!#
+Account: techb / Tech1324
 """
 
 import socket
@@ -509,7 +509,7 @@ logger = logging.getLogger(__name__)
 
 # 하드코딩된 인증 정보
 AUTH_USERNAME = b'techb'
-AUTH_PASSWORD = b'Tech1324!#'
+AUTH_PASSWORD = b'Tech1324'
 
 class SOCKS5Server:
     def __init__(self, port=10000):
@@ -731,7 +731,7 @@ fi
 echo ""
 echo -e "${GREEN}SOCKS5 프록시:${NC}"
 echo "  - 포트: 10000"
-echo "  - 계정: techb:Tech1324!#"
+echo "  - 계정: techb:Tech1324"
 echo "  - 주소: $PUBLIC_IP:10000"
 echo "  - 인증: Username/Password (RFC1929)"
 echo ""
