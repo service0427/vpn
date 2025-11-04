@@ -330,8 +330,7 @@ API_PAYLOAD=$(cat <<EOF
     "socks5_port": 10000,
     "socks5_username": "techb",
     "socks5_password": "Tech1324",
-    "client_config": $CLIENT_CONFIG_ESCAPED,
-    "memo": "VPN+SOCKS5 Server"
+    "client_config": $CLIENT_CONFIG_ESCAPED
 }
 EOF
 )
