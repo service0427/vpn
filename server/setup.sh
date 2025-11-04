@@ -197,39 +197,16 @@ fi
 sysctl -w net.ipv4.ip_forward=1 > /dev/null
 log_success "IP 포워딩 활성화 완료"
 
-# Configure firewall
-log_info "방화벽 설정 중..."
-if command -v firewall-cmd &> /dev/null; then
-    log_info "firewalld 설정 중..."
-    systemctl enable firewalld --now 2>/dev/null || true
-    firewall-cmd --permanent --add-service=ssh
-    firewall-cmd --permanent --add-service=http
-    firewall-cmd --permanent --add-service=https
-    firewall-cmd --permanent --add-service=mysql
-    firewall-cmd --permanent --add-service=postgresql
-    firewall-cmd --permanent --add-port=55555/udp
-    firewall-cmd --permanent --add-masquerade
-    firewall-cmd --reload
-    log_success "firewalld 설정 완료 (SSH, HTTP, HTTPS, MySQL, PostgreSQL, VPN)"
-elif command -v ufw &> /dev/null; then
-    log_info "UFW 설정 중..."
-    ufw allow 22/tcp
-    ufw allow 80/tcp
-    ufw allow 443/tcp
-    ufw allow 3306/tcp
-    ufw allow 5432/tcp
-    ufw allow 55555/udp
-    ufw --force enable
-    log_success "UFW 설정 완료 (SSH, HTTP, HTTPS, MySQL, PostgreSQL, VPN)"
+# Firewall notice
+log_info "방화벽 확인..."
+if systemctl is-active --quiet firewalld 2>/dev/null; then
+    log_warn "firewalld가 활성화되어 있습니다. UDP 55555 포트를 수동으로 열어주세요:"
+    log_warn "  firewall-cmd --permanent --add-port=55555/udp && firewall-cmd --reload"
+elif systemctl is-enabled --quiet ufw 2>/dev/null; then
+    log_warn "UFW가 활성화되어 있습니다. UDP 55555 포트를 수동으로 열어주세요:"
+    log_warn "  ufw allow 55555/udp"
 else
-    log_warn "방화벽을 찾을 수 없습니다 - iptables 직접 사용"
-    iptables -A INPUT -p tcp --dport 22 -j ACCEPT
-    iptables -A INPUT -p tcp --dport 80 -j ACCEPT
-    iptables -A INPUT -p tcp --dport 443 -j ACCEPT
-    iptables -A INPUT -p tcp --dport 3306 -j ACCEPT
-    iptables -A INPUT -p tcp --dport 5432 -j ACCEPT
-    iptables -A INPUT -p udp --dport 55555 -j ACCEPT
-    log_warn "iptables 규칙은 재부팅 후 유지되지 않을 수 있습니다"
+    log_info "방화벽이 비활성화 상태입니다 (모든 포트 열림)"
 fi
 
 # Start WireGuard service
