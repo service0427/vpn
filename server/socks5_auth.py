@@ -82,12 +82,12 @@ class SOCKS5Server:
             client_socket.send(b"\x05\x02")  # Username/Password auth required
 
             # 사용자명/비밀번호 인증
-            auth_data = client_socket.recv(3)
-            if len(auth_data) < 3:
+            auth_data = client_socket.recv(2)
+            if len(auth_data) < 2:
                 client_socket.close()
                 return
 
-            auth_version, ulen = struct.unpack("!BB", auth_data[:2])
+            auth_version, ulen = struct.unpack("!BB", auth_data)
             if auth_version != 1:
                 client_socket.send(b"\x01\x01")  # Auth failed
                 client_socket.close()
