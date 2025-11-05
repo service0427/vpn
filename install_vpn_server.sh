@@ -32,7 +32,30 @@ echo
 
 # 1. 필수 패키지 설치
 echo -e "${GREEN}[1/6] 필수 패키지 설치...${NC}"
-dnf install -y wireguard-tools iptables firewalld mysql
+
+# OS 감지
+if [ -f /etc/os-release ]; then
+    . /etc/os-release
+    OS=$ID
+    VER=$VERSION_ID
+fi
+
+# OS별 패키지 설치
+if [[ "$OS" == "ubuntu" ]]; then
+    echo -e "${YELLOW}Ubuntu 감지됨...${NC}"
+    apt-get update
+    apt-get install -y wireguard-tools iptables ufw curl jq
+elif [[ "$OS" == "rocky" ]] || [[ "$OS" == "rhel" ]] || [[ "$OS" == "centos" ]]; then
+    echo -e "${YELLOW}Rocky/RHEL 감지됨...${NC}"
+    # EPEL 리포지토리 활성화 (WireGuard 설치를 위해)
+    dnf install -y epel-release 2>/dev/null || true
+    dnf config-manager --set-enabled crb 2>/dev/null || true
+    dnf install -y wireguard-tools iptables firewalld curl jq
+else
+    echo -e "${RED}지원되지 않는 OS: $OS${NC}"
+    echo -e "${YELLOW}수동으로 WireGuard를 설치하세요${NC}"
+    exit 1
+fi
 
 # 2. IP 포워딩 활성화
 echo -e "${GREEN}[2/6] 커널 설정...${NC}"
@@ -187,18 +210,31 @@ EOF
 echo -e "${GREEN}방화벽 설정...${NC}"
 echo -e "${YELLOW}주의: VPN 포트(${VPN_PORT}/udp)만 추가합니다. SSH 등 기존 설정은 유지됩니다.${NC}"
 
-# 현재 열린 포트 확인
-echo "현재 열린 서비스/포트:"
-firewall-cmd --list-all | grep -E "services:|ports:" | head -2
+if [[ "$OS" == "ubuntu" ]]; then
+    # Ubuntu UFW 설정
+    ufw --force enable 2>/dev/null || true
+    ufw allow ${VPN_PORT}/udp
+    ufw allow ssh
+    echo -e "${GREEN}✓ UFW 방화벽에 VPN 포트 ${VPN_PORT}/udp 추가 완료${NC}"
+    ufw status numbered
+else
+    # Rocky/RHEL firewalld 설정
+    systemctl start firewalld 2>/dev/null || true
+    systemctl enable firewalld 2>/dev/null || true
 
-# VPN 포트만 추가 (기존 설정 유지)
-firewall-cmd --permanent --add-port=${VPN_PORT}/udp
-firewall-cmd --permanent --add-masquerade
-firewall-cmd --reload
+    # 현재 열린 포트 확인
+    echo "현재 열린 서비스/포트:"
+    firewall-cmd --list-all | grep -E "services:|ports:" | head -2
 
-echo -e "${GREEN}✓ VPN 포트 ${VPN_PORT}/udp 추가 완료${NC}"
-echo "업데이트된 포트 목록:"
-firewall-cmd --list-ports
+    # VPN 포트만 추가 (기존 설정 유지)
+    firewall-cmd --permanent --add-port=${VPN_PORT}/udp
+    firewall-cmd --permanent --add-masquerade
+    firewall-cmd --reload
+
+    echo -e "${GREEN}✓ VPN 포트 ${VPN_PORT}/udp 추가 완료${NC}"
+    echo "업데이트된 포트 목록:"
+    firewall-cmd --list-ports
+fi
 
 # 9. WireGuard 시작
 echo -e "${GREEN}WireGuard 시작...${NC}"
