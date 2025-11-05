@@ -72,6 +72,13 @@ class SOCKS5Server:
                     readable, _, _ = select.select([self.server_socket], [], [], 1)
                     if readable:
                         client_socket, address = self.server_socket.accept()
+
+                        # TCP 최적화 옵션 추가
+                        client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)  # Keep-Alive
+                        client_socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)  # Nagle 비활성화
+                        client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 65536)  # 수신 버퍼 64KB
+                        client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 65536)  # 송신 버퍼 64KB
+
                         thread = threading.Thread(target=self.handle_client, args=(client_socket, address))
                         thread.daemon = True
                         thread.start()
@@ -143,8 +150,18 @@ class SOCKS5Server:
             # 원격 서버 연결 (메인 이더넷 사용)
             try:
                 remote_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+                # TCP 최적화 옵션 추가
+                remote_socket.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+                remote_socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+                remote_socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 65536)
+                remote_socket.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 65536)
+
+                # 연결 timeout은 10초 유지
                 remote_socket.settimeout(10)
                 remote_socket.connect((addr, port))
+                # 연결 성공 후 데이터 timeout을 60초로 변경
+                remote_socket.settimeout(60)
 
                 # 성공 응답
                 client_socket.send(b"\x05\x00\x00\x01\x00\x00\x00\x00\x00\x00")
@@ -172,7 +189,7 @@ class SOCKS5Server:
                 ready = select.select([client_socket, remote_socket], [], [], 1)
                 if ready[0]:
                     for sock in ready[0]:
-                        data = sock.recv(4096)
+                        data = sock.recv(65536)  # 64KB 버퍼
                         if not data:
                             return
                         if sock is client_socket:
