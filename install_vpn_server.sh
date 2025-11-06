@@ -310,3 +310,23 @@ else
     echo -e "${YELLOW}⚠️ API 등록 실패. 수동으로 등록하세요:${NC}"
     echo -e "  curl -s http://220.121.120.83/vpn_api/one_line_register.sh | bash"
 fi
+
+# ========================================
+# Heartbeat 설정
+# ========================================
+
+echo ""
+echo -e "${GREEN}=====================================${NC}"
+echo -e "${GREEN}   Heartbeat 설정 중...${NC}"
+echo -e "${GREEN}=====================================${NC}"
+echo ""
+
+# Heartbeat 스크립트를 crontab에 추가
+if ! crontab -l 2>/dev/null | grep -q "vpn_heartbeat.sh"; then
+    (crontab -l 2>/dev/null; echo "*/1 * * * * /home/vpn/vpn_heartbeat.sh > /dev/null 2>&1") | crontab -
+    echo -e "${GREEN}✓ Heartbeat cron 등록 완료 (1분마다 실행)${NC}"
+else
+    echo -e "${YELLOW}⚠ Heartbeat cron이 이미 등록되어 있습니다${NC}"
+fi
+
+echo -e "${GREEN}✓ VPN 서버가 1분마다 상태를 중앙 API로 전송합니다${NC}"
