@@ -26,6 +26,7 @@ echo -e "${YELLOW}설치 스크립트 다운로드 중...${NC}"
 curl -sL https://raw.githubusercontent.com/service0427/vpn/main/install_vpn_server.sh -o install_vpn_server.sh
 curl -sL https://raw.githubusercontent.com/service0427/vpn/main/uninstall_vpn.sh -o uninstall_vpn.sh
 curl -sL https://raw.githubusercontent.com/service0427/vpn/main/check_firewall.sh -o check_firewall.sh
+curl -sL https://raw.githubusercontent.com/service0427/vpn/main/vpn_heartbeat.sh -o vpn_heartbeat.sh
 
 # 실행 권한 부여
 chmod +x *.sh
