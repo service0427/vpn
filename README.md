@@ -3,7 +3,7 @@
 ## 🚀 빠른 시작
 
 ```bash
-curl -sL https://raw.githubusercontent.com/service0427/vpn/main/install.sh | sudo bash
+curl -sL https://github.com/service0427/vpn/raw/main/install.sh | sudo bash
 ```
 
 ---
@@ -13,12 +13,12 @@ WireGuard VPN 서버를 설치하고 10개의 클라이언트 키를 자동 생�
 ## 🚀 원라인 설치
 
 ```bash
-curl -sL https://raw.githubusercontent.com/service0427/vpn/main/install.sh | sudo bash
+curl -sL https://github.com/service0427/vpn/raw/main/install.sh | sudo bash
 ```
 
 또는 wget 사용:
 ```bash
-wget -qO- https://raw.githubusercontent.com/service0427/vpn/main/install.sh | sudo bash
+wget -qO- https://github.com/service0427/vpn/raw/main/install.sh | sudo bash
 ```
 
 ## 📦 수동 설치
