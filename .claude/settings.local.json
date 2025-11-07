@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//tmp/**)",
+      "Read(//etc/wireguard/**)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
