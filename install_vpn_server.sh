@@ -295,21 +295,51 @@ if curl -s "http://220.121.120.83/vpn_api/status?ip=${SERVER_IP}" | jq '.success
     echo
 fi
 
-# 원라인 자동 등록
-if curl -s http://220.121.120.83/vpn_api/one_line_register.sh | bash; then
-    echo ""
-    echo -e "${GREEN}✅ VPN 서버 설치 및 API 등록 완료!${NC}"
-    echo ""
-    echo -e "${YELLOW}사용 가능한 명령어:${NC}"
-    echo -e "  # 서버 목록 확인"
-    echo -e "  curl http://220.121.120.83/vpn_api/list"
-    echo ""
-    echo -e "  # 키 할당 테스트"
-    echo -e "  curl \"http://220.121.120.83/vpn_api/allocate?ip=${SERVER_IP}\""
+# API 서버에 등록
+API_URL="http://220.121.120.83/vpn_api"
+
+# 1. 서버 정보 등록
+echo -e "${YELLOW}서버 정보 등록 중...${NC}"
+SERVER_RESPONSE=$(curl -s -X POST "$API_URL/server/register" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"public_ip\": \"$SERVER_IP\",
+    \"port\": $VPN_PORT,
+    \"server_pubkey\": \"$SERVER_PUBLIC_KEY\",
+    \"memo\": \"VPN Server $SERVER_IP\"
+  }")
+
+if echo "$SERVER_RESPONSE" | jq '.success' 2>/dev/null | grep -q true; then
+    SERVER_ID=$(echo "$SERVER_RESPONSE" | jq -r '.server_id // .data.server_id' 2>/dev/null)
+    echo -e "${GREEN}✓ 서버 등록 완료 (ID: $SERVER_ID)${NC}"
+
+    # 2. 키 일괄 등록
+    echo -e "${YELLOW}VPN 키 일괄 등록 중...${NC}"
+    KEYS_RESPONSE=$(curl -s -X POST "$API_URL/keys/register" \
+      -H "Content-Type: application/json" \
+      -d @/home/vpn/vpn_server_data.json)
+
+    if echo "$KEYS_RESPONSE" | jq '.success' 2>/dev/null | grep -q true; then
+        REGISTERED=$(echo "$KEYS_RESPONSE" | jq -r '.registered // .data.registered' 2>/dev/null)
+        echo -e "${GREEN}✓ 키 등록 완료 ($REGISTERED개)${NC}"
+        echo ""
+        echo -e "${GREEN}✅ VPN 서버 설치 및 API 등록 완료!${NC}"
+    else
+        echo -e "${YELLOW}⚠️ 키 등록 실패${NC}"
+        echo "$KEYS_RESPONSE"
+    fi
 else
-    echo -e "${YELLOW}⚠️ API 등록 실패. 수동으로 등록하세요:${NC}"
-    echo -e "  curl -s http://220.121.120.83/vpn_api/one_line_register.sh | bash"
+    echo -e "${YELLOW}⚠️ 서버 등록 실패${NC}"
+    echo "$SERVER_RESPONSE"
 fi
+
+echo ""
+echo -e "${YELLOW}사용 가능한 명령어:${NC}"
+echo -e "  # 서버 목록 확인"
+echo -e "  curl http://220.121.120.83/vpn_api/list"
+echo ""
+echo -e "  # 키 할당 테스트"
+echo -e "  curl \"http://220.121.120.83/vpn_api/allocate?ip=${SERVER_IP}\""
 
 # ========================================
 # Heartbeat 설정
