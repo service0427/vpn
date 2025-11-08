@@ -271,7 +271,8 @@ if echo "$SERVER_RESPONSE" | jq '.success' 2>/dev/null | grep -q true; then
     print_success "Server ${ACTION} (ID: ${SERVER_ID})"
 
     # 2. Register client keys in bulk
-    print_info "Step 2/2: Registering ${VPN_END_IP - VPN_START_IP + 1} client keys..."
+    TOTAL_KEYS=$((VPN_END_IP - VPN_START_IP + 1))
+    print_info "Step 2/2: Registering ${TOTAL_KEYS} client keys..."
     KEYS_RESPONSE=$(curl -s -X POST "${API_URL}/keys/register" \
       -H "Content-Type: application/json" \
       -d @${VPN_DIR}/keys_register.json)

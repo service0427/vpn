@@ -4,18 +4,22 @@
 # VPN Server One-Line Installation Script
 #====================================
 
-# Load common functions
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${SCRIPT_DIR}/common.sh" 2>/dev/null || source /home/vpn/common.sh
+# Color definitions (temporary, until common.sh is downloaded)
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
 
-print_header "VPN Server One-Line Installation"
+echo -e "${GREEN}=====================================${NC}"
+echo -e "${GREEN}   VPN Server One-Line Installation${NC}"
+echo -e "${GREEN}=====================================${NC}"
+echo
 
 # Create temporary directory
 TEMP_DIR="/tmp/vpn_install_$$"
 mkdir -p $TEMP_DIR
 cd $TEMP_DIR
 
-print_info "Downloading installation scripts..."
+echo -e "${YELLOW}Downloading installation scripts...${NC}"
 
 # Download scripts from GitHub
 curl -sL https://raw.githubusercontent.com/service0427/vpn/main/install_vpn_server.sh -o install_vpn_server.sh
@@ -34,7 +38,7 @@ mkdir -p /home/vpn
 cp *.sh /home/vpn/
 cd /home/vpn
 
-print_success "Starting installation..."
+echo -e "${GREEN}✓ Starting installation...${NC}"
 echo
 
 # Run installation
@@ -44,7 +48,7 @@ echo
 rm -rf $TEMP_DIR
 
 echo
-print_info "Setting up auto-installation on reboot..."
+echo -e "${YELLOW}Setting up auto-installation on reboot...${NC}"
 
 # Cron job configuration (prevent duplicates)
 CRON_ENTRY="@reboot while ! ping -c 1 8.8.8.8 >/dev/null 2>&1; do sleep 1; done && curl -sL https://github.com/service0427/vpn/raw/main/install.sh | sudo bash >/dev/null 2>&1"
@@ -57,17 +61,19 @@ fi
 # Add new cron job
 (crontab -l 2>/dev/null || true; echo "$CRON_ENTRY") | crontab - 2>/dev/null
 
-print_success "Auto-installation on reboot enabled"
+echo -e "${GREEN}✓ Auto-installation on reboot enabled${NC}"
 
 echo
-print_header "Installation Complete!"
+echo -e "${GREEN}=====================================${NC}"
+echo -e "${GREEN}   Installation Complete!${NC}"
+echo -e "${GREEN}=====================================${NC}"
 echo
-print_info "Useful commands:"
+echo -e "${YELLOW}Useful commands:${NC}"
 echo -e "  Check VPN status: ${GREEN}wg show${NC}"
 echo -e "  Check firewall: ${GREEN}/home/vpn/check_firewall.sh${NC}"
 echo -e "  Reinstall VPN: ${GREEN}/home/vpn/install_vpn_server.sh${NC}"
 echo -e "  Remove VPN: ${GREEN}/home/vpn/uninstall_vpn.sh${NC}"
 echo
-print_info "Automatic configuration:"
+echo -e "${YELLOW}Automatic configuration:${NC}"
 echo -e "  Auto-reinstall on reboot enabled (auto re-register on IP change)"
 echo -e "  Check cron: ${GREEN}crontab -l${NC}"
