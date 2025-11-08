@@ -1,62 +1,64 @@
 #!/bin/bash
 
-# 방화벽 상태 확인 스크립트
+#====================================
+# Firewall Status Check Script
+#====================================
 
-echo "======================================"
-echo "   방화벽 상태 확인"
-echo "======================================"
-echo
+# Load common functions
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/common.sh" 2>/dev/null || source /home/vpn/common.sh
 
-# 1. 기본 정보
-echo "📋 기본 정보:"
+print_header "Firewall Status Check"
+
+# 1. Basic information
+echo "Basic Information:"
 firewall-cmd --state
 firewall-cmd --get-default-zone
 echo
 
-# 2. 열린 서비스
-echo "🔓 허용된 서비스:"
+# 2. Allowed services
+echo "Allowed Services:"
 firewall-cmd --list-services
 echo
 
-# 3. 열린 포트
-echo "🔌 열린 포트:"
+# 3. Open ports
+echo "Open Ports:"
 firewall-cmd --list-ports
 echo
 
-# 4. SSH 포트 확인
-echo "🔐 SSH 상태:"
+# 4. SSH port check
+echo "SSH Status:"
 if firewall-cmd --list-services | grep -q ssh; then
-    echo "✅ SSH 서비스 활성화됨"
+    print_success "SSH service enabled"
 else
-    echo "⚠️  SSH 서비스가 방화벽에 없습니다!"
+    print_warning "SSH service not found in firewall!"
 fi
 
-# SSH 포트 확인
+# Check SSH port
 SSH_PORT=$(grep "^Port" /etc/ssh/sshd_config 2>/dev/null | awk '{print $2}' || echo "22")
-echo "SSH 포트: $SSH_PORT"
+echo "SSH Port: $SSH_PORT"
 echo
 
-# 5. 중요 포트 체크
-echo "🔍 중요 포트 상태:"
-CRITICAL_PORTS="22 80 443 3306 55555"
+# 5. Critical ports check
+echo "Critical Port Status:"
+CRITICAL_PORTS="22 80 443 3306 ${VPN_PORT}"
 for port in $CRITICAL_PORTS; do
     if firewall-cmd --list-all | grep -E "ports:|services:" | grep -q "$port"; then
-        echo "  ✅ 포트 $port 열림"
+        print_success "Port $port open"
     else
-        echo "  ❌ 포트 $port 닫힘"
+        print_error "Port $port closed"
     fi
 done
 echo
 
-# 6. 전체 설정
-echo "📊 전체 방화벽 설정:"
+# 6. Full configuration
+echo "Full Firewall Configuration:"
 firewall-cmd --list-all
 
 echo
 echo "======================================"
-echo "⚠️  주의사항:"
-echo "- SSH(22)는 절대 차단하지 마세요"
-echo "- 필요한 포트만 열고 나머지는 기본 정책에 맡기세요"
-echo "- 방화벽 변경 후 반드시 SSH 접속 테스트하세요"
-echo "======================================
-"
+print_warning "Important Notes:"
+echo "- Never block SSH (22)"
+echo "- Only open necessary ports, leave others to default policy"
+echo "- Always test SSH connection after firewall changes"
+echo "======================================"
