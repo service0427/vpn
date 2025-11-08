@@ -128,6 +128,9 @@ Endpoint = ${SERVER_IP}:${VPN_PORT}
 AllowedIPs = 0.0.0.0/0
 PersistentKeepalive = 25
 EOF
+
+    # Store public key for JSON generation later
+    echo "${CLIENT_PUBLIC}" > ${WIREGUARD_DIR}/clients/client_${i}.pub
 done
 
 # 7. Generate JSON for API server integration
@@ -156,8 +159,8 @@ FIRST=1
 for i in $(seq ${VPN_START_IP} ${VPN_END_IP}); do
     if [ -f ${WIREGUARD_DIR}/clients/client_${i}.conf ]; then
         CLIENT_IP="${VPN_SUBNET}.${i}"
-        CLIENT_PRIVATE=$(grep "PrivateKey" ${WIREGUARD_DIR}/clients/client_${i}.conf | cut -d'=' -f2 | xargs)
-        CLIENT_PUBLIC=$(echo ${CLIENT_PRIVATE} | wg pubkey)
+        CLIENT_PRIVATE=$(grep "PrivateKey" ${WIREGUARD_DIR}/clients/client_${i}.conf | awk '{print $3}')
+        CLIENT_PUBLIC=$(cat ${WIREGUARD_DIR}/clients/client_${i}.pub)
 
         if [ $FIRST -eq 0 ]; then
             echo "," >> ${VPN_DIR}/keys_register.json
