@@ -1,0 +1,13 @@
+# VPN 테스트 파일
+vpn-mobile/
+test_*.conf
+*.key
+*.pub
+
+# VPN 백업
+vpn/backups/
+*.tar.gz
+
+# 로컬 설정
+.claude/
+test.md
