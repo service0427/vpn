@@ -42,7 +42,7 @@ Content-Type: application/json
 ```
 
 ```
-POST http://220.121.120.83/vpn_api/keys/bulk
+POST http://220.121.120.83/vpn_api/keys/register
 Content-Type: application/json
 
 {
