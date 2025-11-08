@@ -1,34 +1,10 @@
 # VPN 서버 원클릭 설치
 
-## 🚀 빠른 시작
-
-```bash
-curl -sL https://github.com/service0427/vpn/raw/main/install.sh | sudo bash
-```
-
----
-
 WireGuard VPN 서버를 설치하고 10개의 클라이언트 키를 자동 생성하는 스크립트
 
-## 🚀 원라인 설치
+## 🚀 설치
 
 ```bash
-curl -sL https://github.com/service0427/vpn/raw/main/install.sh | sudo bash
-```
-
-또는 wget 사용:
-```bash
-wget -qO- https://github.com/service0427/vpn/raw/main/install.sh | sudo bash
-```
-
-## 📦 수동 설치
-
-```bash
-# 1. 저장소 클론
-git clone https://github.com/service0427/vpn.git
-cd vpn
-
-# 2. 설치 실행
 sudo ./install_vpn_server.sh
 ```
 
@@ -66,7 +42,7 @@ Content-Type: application/json
 ```
 
 ```
-POST http://220.121.120.83/vpn_api/keys/bulk
+POST http://220.121.120.83/vpn_api/keys/register
 Content-Type: application/json
 
 {

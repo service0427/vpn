@@ -260,7 +260,7 @@ echo -e "   ${GREEN}/home/vpn/vpn_server_data.json${NC}"
 echo
 echo -e "2. API 서버에 등록 요청:"
 echo -e "   서버 등록: POST http://220.121.120.83/vpn_api/server/register"
-echo -e "   키 일괄 등록: POST http://220.121.120.83/vpn_api/keys/bulk"
+echo -e "   키 일괄 등록: POST http://220.121.120.83/vpn_api/keys/register"
 echo
 echo -e "3. VPN 상태 확인:"
 echo -e "   wg show"
