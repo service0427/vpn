@@ -21,12 +21,13 @@ cd $TEMP_DIR
 
 echo -e "${YELLOW}Downloading installation scripts...${NC}"
 
-# Download scripts from GitHub
-curl -sL https://raw.githubusercontent.com/service0427/vpn/main/install_vpn_server.sh -o install_vpn_server.sh
-curl -sL https://raw.githubusercontent.com/service0427/vpn/main/uninstall_vpn.sh -o uninstall_vpn.sh
-curl -sL https://raw.githubusercontent.com/service0427/vpn/main/check_firewall.sh -o check_firewall.sh
-curl -sL https://raw.githubusercontent.com/service0427/vpn/main/vpn_heartbeat.sh -o vpn_heartbeat.sh
-curl -sL https://raw.githubusercontent.com/service0427/vpn/main/common.sh -o common.sh
+# Download scripts from GitHub (with cache buster)
+CACHE_BUSTER="?t=$(date +%s)"
+curl -sL "https://raw.githubusercontent.com/service0427/vpn/main/install_vpn_server.sh${CACHE_BUSTER}" -o install_vpn_server.sh
+curl -sL "https://raw.githubusercontent.com/service0427/vpn/main/uninstall_vpn.sh${CACHE_BUSTER}" -o uninstall_vpn.sh
+curl -sL "https://raw.githubusercontent.com/service0427/vpn/main/check_firewall.sh${CACHE_BUSTER}" -o check_firewall.sh
+curl -sL "https://raw.githubusercontent.com/service0427/vpn/main/vpn_heartbeat.sh${CACHE_BUSTER}" -o vpn_heartbeat.sh
+curl -sL "https://raw.githubusercontent.com/service0427/vpn/main/common.sh${CACHE_BUSTER}" -o common.sh
 
 # Grant execution permissions
 chmod +x *.sh
