@@ -99,15 +99,6 @@ EOF
 print_success "[6/7] Generating client keys (${VPN_START_IP} ~ ${VPN_END_IP})..."
 mkdir -p ${WIREGUARD_DIR}/clients
 
-# Start SQL file
-cat > /tmp/vpn_keys.sql << 'SQLHEADER'
--- VPN key data
--- Created: $(date)
-
-INSERT INTO vpn_keys (server_id, internal_ip, private_key, public_key, in_use, created_at) VALUES
-SQLHEADER
-
-FIRST=1
 for i in $(seq ${VPN_START_IP} ${VPN_END_IP}); do
     CLIENT_IP="${VPN_SUBNET}.${i}"
     echo -e "  Generating: ${CLIENT_IP}"
@@ -124,14 +115,6 @@ PublicKey = ${CLIENT_PUBLIC}
 AllowedIPs = ${CLIENT_IP}/32
 EOF
 
-    # Add SQL data
-    if [ $FIRST -eq 1 ]; then
-        FIRST=0
-    else
-        echo "," >> /tmp/vpn_keys.sql
-    fi
-    echo -n "(@server_id, '${CLIENT_IP}', '${CLIENT_PRIVATE}', '${CLIENT_PUBLIC}', 0, NOW())" >> /tmp/vpn_keys.sql
-
     # Create client configuration file
     cat > ${WIREGUARD_DIR}/clients/client_${i}.conf << EOF
 [Interface]
@@ -147,20 +130,24 @@ PersistentKeepalive = 25
 EOF
 done
 
-echo ";" >> /tmp/vpn_keys.sql
-
 # 7. Generate JSON for API server integration
 print_success "[7/7] Generating API integration data..."
 
-# Create JSON file
-cat > ${VPN_DIR}/vpn_server_data.json << EOF
+# Create server registration JSON
+cat > ${VPN_DIR}/server_register.json << EOF
 {
-  "server": {
-    "public_ip": "${SERVER_IP}",
-    "port": ${VPN_PORT},
-    "server_pubkey": "${SERVER_PUBLIC_KEY}",
-    "memo": "VPN Server - $(hostname)"
-  },
+  "public_ip": "${SERVER_IP}",
+  "port": ${VPN_PORT},
+  "server_pubkey": "${SERVER_PUBLIC_KEY}",
+  "memo": "VPN Server ${SERVER_IP}"
+}
+EOF
+
+# Create keys registration JSON
+cat > ${VPN_DIR}/keys_register.json << EOF
+{
+  "public_ip": "${SERVER_IP}",
+  "port": ${VPN_PORT},
   "keys": [
 EOF
 
@@ -173,11 +160,11 @@ for i in $(seq ${VPN_START_IP} ${VPN_END_IP}); do
         CLIENT_PUBLIC=$(echo ${CLIENT_PRIVATE} | wg pubkey)
 
         if [ $FIRST -eq 0 ]; then
-            echo "," >> ${VPN_DIR}/vpn_server_data.json
+            echo "," >> ${VPN_DIR}/keys_register.json
         fi
         FIRST=0
 
-        cat >> ${VPN_DIR}/vpn_server_data.json << EOF
+        cat >> ${VPN_DIR}/keys_register.json << EOF
     {
       "internal_ip": "${CLIENT_IP}",
       "private_key": "${CLIENT_PRIVATE}",
@@ -187,7 +174,7 @@ EOF
     fi
 done
 
-cat >> ${VPN_DIR}/vpn_server_data.json << EOF
+cat >> ${VPN_DIR}/keys_register.json << EOF
 
   ]
 }
@@ -239,16 +226,13 @@ echo -e "  Public Key: ${SERVER_PUBLIC_KEY}"
 echo -e "  Subnet: ${VPN_SUBNET}.0/24"
 echo -e "  Number of clients: $((VPN_END_IP - VPN_START_IP + 1))"
 echo
-print_info "Next steps:"
-echo -e "1. Check generated JSON file:"
-echo -e "   ${GREEN}${VPN_DIR}/vpn_server_data.json${NC}"
+print_info "Generated API registration files:"
+echo -e "  Server: ${GREEN}${VPN_DIR}/server_register.json${NC}"
+echo -e "  Keys:   ${GREEN}${VPN_DIR}/keys_register.json${NC}"
 echo
-echo -e "2. Register to API server:"
-echo -e "   Server registration: POST ${API_URL}/server/register"
-echo -e "   Bulk key registration: POST ${API_URL}/keys/register"
-echo
-echo -e "3. Check VPN status:"
-echo -e "   wg show"
+print_info "Manual registration (if needed):"
+echo -e "  ${GREEN}curl -X POST \"${API_URL}/server/register\" -H \"Content-Type: application/json\" -d @${VPN_DIR}/server_register.json${NC}"
+echo -e "  ${GREEN}curl -X POST \"${API_URL}/keys/register\" -H \"Content-Type: application/json\" -d @${VPN_DIR}/keys_register.json${NC}"
 echo
 print_success "Client configuration files:"
 echo -e "   ${WIREGUARD_DIR}/clients/ directory"
@@ -257,9 +241,6 @@ echo -e "${GREEN}=====================================${NC}"
 
 # Check status
 wg show
-
-# Clean up temporary files
-rm -f /tmp/vpn_keys.sql
 
 # ========================================
 # Automatic API Registration
@@ -279,38 +260,35 @@ if curl -s "${API_URL}/status?ip=${SERVER_IP}" | jq '.success' | grep -q true; t
 fi
 
 # 1. Register server information
-print_info "Registering server information..."
+print_info "Step 1/2: Registering server information..."
 SERVER_RESPONSE=$(curl -s -X POST "${API_URL}/server/register" \
   -H "Content-Type: application/json" \
-  -d "{
-    \"public_ip\": \"$SERVER_IP\",
-    \"port\": $VPN_PORT,
-    \"server_pubkey\": \"$SERVER_PUBLIC_KEY\",
-    \"memo\": \"VPN Server $SERVER_IP\"
-  }")
+  -d @${VPN_DIR}/server_register.json)
 
 if echo "$SERVER_RESPONSE" | jq '.success' 2>/dev/null | grep -q true; then
     SERVER_ID=$(echo "$SERVER_RESPONSE" | jq -r '.server_id // .data.server_id' 2>/dev/null)
-    print_success "Server registration complete (ID: $SERVER_ID)"
+    ACTION=$(echo "$SERVER_RESPONSE" | jq -r '.action // "registered"' 2>/dev/null)
+    print_success "Server ${ACTION} (ID: ${SERVER_ID})"
 
-    # 2. Bulk key registration
-    print_info "Registering VPN keys in bulk..."
+    # 2. Register client keys in bulk
+    print_info "Step 2/2: Registering ${VPN_END_IP - VPN_START_IP + 1} client keys..."
     KEYS_RESPONSE=$(curl -s -X POST "${API_URL}/keys/register" \
       -H "Content-Type: application/json" \
-      -d @${VPN_DIR}/vpn_server_data.json)
+      -d @${VPN_DIR}/keys_register.json)
 
     if echo "$KEYS_RESPONSE" | jq '.success' 2>/dev/null | grep -q true; then
         REGISTERED=$(echo "$KEYS_RESPONSE" | jq -r '.registered // .data.registered' 2>/dev/null)
-        print_success "Key registration complete (${REGISTERED} keys)"
+        TOTAL=$(echo "$KEYS_RESPONSE" | jq -r '.total // .data.total' 2>/dev/null)
+        print_success "Keys registered: ${REGISTERED}/${TOTAL}"
         echo ""
         print_success "VPN server installation and API registration complete!"
     else
         print_warning "Key registration failed"
-        echo "$KEYS_RESPONSE"
+        echo "Response: $KEYS_RESPONSE"
     fi
 else
     print_warning "Server registration failed"
-    echo "$SERVER_RESPONSE"
+    echo "Response: $SERVER_RESPONSE"
 fi
 
 echo ""

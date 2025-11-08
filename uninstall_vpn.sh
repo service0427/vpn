@@ -54,8 +54,8 @@ print_info "[3/4] Deleting wg0 configuration files..."
 rm -f ${WIREGUARD_DIR}/${VPN_INTERFACE}.conf
 rm -f ${WIREGUARD_DIR}/server.key ${WIREGUARD_DIR}/server.pub
 rm -rf ${WIREGUARD_DIR}/clients/  # wg0 client configs
-rm -f ${VPN_DIR}/vpn_server_data.json
-rm -f /root/vpn_keys.json
+rm -f ${VPN_DIR}/server_register.json
+rm -f ${VPN_DIR}/keys_register.json
 print_success "wg0 configuration files deleted"
 
 # 4. Remove firewall rules (VPN port only)
