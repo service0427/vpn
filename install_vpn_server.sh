@@ -264,6 +264,9 @@ fi
 
 # 1. Register server information
 print_info "Step 1/2: Registering server information..."
+echo "DEBUG: Server registration data:"
+cat ${VPN_DIR}/server_register.json
+echo ""
 SERVER_RESPONSE=$(curl -s -X POST "${API_URL}/server/register" \
   -H "Content-Type: application/json" \
   -d @${VPN_DIR}/server_register.json)
@@ -276,6 +279,9 @@ if echo "$SERVER_RESPONSE" | jq '.success' 2>/dev/null | grep -q true; then
     # 2. Register client keys in bulk
     TOTAL_KEYS=$((VPN_END_IP - VPN_START_IP + 1))
     print_info "Step 2/2: Registering ${TOTAL_KEYS} client keys..."
+    echo "DEBUG: Keys registration data:"
+    cat ${VPN_DIR}/keys_register.json
+    echo ""
     KEYS_RESPONSE=$(curl -s -X POST "${API_URL}/keys/register" \
       -H "Content-Type: application/json" \
       -d @${VPN_DIR}/keys_register.json)
