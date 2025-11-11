@@ -28,7 +28,7 @@ get_server_ip() {
 
 # Get main network interface
 get_main_interface() {
-    ip route | grep '^default' | head -1 | awk '{print $5}'
+    /usr/sbin/ip route | grep '^default' | head -1 | awk '{print $5}'
 }
 
 # Get local IP (main interface)
@@ -38,7 +38,7 @@ get_local_ip() {
         echo "unknown"
         return 1
     fi
-    ip -4 addr show "$interface" | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | head -1
+    /usr/sbin/ip -4 addr show "$interface" | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | head -1
 }
 
 # Color message output

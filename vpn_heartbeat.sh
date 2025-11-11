@@ -27,8 +27,8 @@ if [[ $SERVER_IP =~ ^(10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|192\.168\.) ]]; then
 fi
 
 # Collect RX/TX bytes (main ethernet interface)
-RX=$(ip -s link show $MAIN_INTERFACE 2>/dev/null | grep -A1 "RX:" | tail -1 | awk '{print $1}')
-TX=$(ip -s link show $MAIN_INTERFACE 2>/dev/null | grep -A1 "TX:" | tail -1 | awk '{print $1}')
+RX=$(/usr/sbin/ip -s link show $MAIN_INTERFACE 2>/dev/null | grep -A1 "RX:" | tail -1 | awk '{print $1}')
+TX=$(/usr/sbin/ip -s link show $MAIN_INTERFACE 2>/dev/null | grep -A1 "TX:" | tail -1 | awk '{print $1}')
 
 # Set default values
 RX=${RX:-0}
